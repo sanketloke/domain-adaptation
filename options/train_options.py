@@ -4,7 +4,7 @@ class TrainOptions(BaseOptions):
     def initialize(self):
         BaseOptions.initialize(self)
         self.parser.add_argument('--display_freq', type=int, default=100, help='frequency of showing training results on screen')
-        self.parser.add_argument('--print_freq', type=int, default=1, help='frequency of showing training results on console')
+        self.parser.add_argument('--print_freq', type=int, default=50, help='frequency of showing training results on console')
         self.parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')
         self.parser.add_argument('--save_epoch_freq', type=int, default=5, help='frequency of saving checkpoints at the end of epochs')
         self.parser.add_argument('--save_display_freq', type=int, default=2500, help='save the current display of results every save_display_freq_iterations')

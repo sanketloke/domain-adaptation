@@ -1,7 +1,8 @@
 from  cycle_pix2pix_model import CycleGANPix2PixModel
+from cycle_classification_model import CycleGANClassificationModel
 def create_model(opt):
     model = None
-    model = CycleGANPix2PixModel()
+    model = CycleGANClassificationModel()
     model.initialize(opt)
     print("model [%s] was created" % (model.name()))
     return model

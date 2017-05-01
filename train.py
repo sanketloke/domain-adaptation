@@ -29,15 +29,22 @@ transform = transforms.Compose([
 
 target_transform = transforms.Compose([
                                        transforms.Scale(opt.loadSize),
-                                       transforms.CenterCrop(opt.fineSize),transforms.ToTensor(),#ToLabelTensor(labels.labels.labels),
+                                       transforms.CenterCrop(opt.fineSize),transforms.ToTensor(),ToLabelTensor(labels.labels.labels),
                                     ])
 
+target_transform2 = transforms.Compose([
+                                       transforms.Scale(opt.loadSize2),
+                                       transforms.CenterCrop(opt.fineSize),transforms.ToTensor(),ToLabelTensor(labels.labels.labels),
+                                    ])
+
+print opt.loadSize2
+print opt.loadSize
 
 
 domainAdata= SegmentationDataset(root=opt.dataroot + '/' + opt.domain_A ,
                         transform=transform, target_transform=target_transform, return_paths=True)
 domainBdata= SegmentationDataset(root=opt.dataroot + '/' + opt.domain_B ,
-                        transform=transform, target_transform=target_transform, return_paths=True)
+                        transform=transform, target_transform=target_transform2, return_paths=True)
 domainAdataloader = torch.utils.data.DataLoader(
             domainAdata,
             batch_size=opt.batchSize,
@@ -79,7 +86,7 @@ domainBdata_iter = domainBdataloader.__iter__()
 dataset_iter = dataset.__iter__()
 
 total_steps=0
-
+print 'Here'
 for epoch in range(1, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
 
@@ -87,6 +94,7 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
 
     data_sample_list = np.random.choice(data_samples, data_sample_len , p) 
     for i in data_sample_list:
+      print i
       if i in 'AB':
         batch_n= next(dataset_iter)
         data={}

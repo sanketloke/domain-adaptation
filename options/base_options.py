@@ -11,7 +11,8 @@ class BaseOptions():
         
         self.parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
         self.parser.add_argument('--loadSize', type=int, default=1024, help='scale images to this size')
-        self.parser.add_argument('--fineSize', type=int, default=400, help='then crop to this size')
+        self.parser.add_argument('--loadSize2', type=int, default=1052, help='scale images to this size')
+        self.parser.add_argument('--fineSize', type=int, default=300, help='then crop to this size')
         self.parser.add_argument('--domain_A', type=str, default='cityscapes', help='name of domain A')
         self.parser.add_argument('--domain_B', type=str, default='gtav', help='name of domain B')
         self.parser.add_argument('--dataroot', type=str,default='/home/sloke/repos/nips2017/pytorch-CycleGAN-and-pix2pix/datasets/gtacityscapes', help='path to images (should have subfolders trainA, trainB, valA, valB, etc)')
@@ -24,7 +25,7 @@ class BaseOptions():
         self.parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
         self.parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
         self.parser.add_argument('--which_model_netD', type=str, default='basic', help='selects model to use for netD')
-        self.parser.add_argument('--which_model_netG', type=str, default='resnet_9blocks', help='selects model to use for netG')
+        self.parser.add_argument('--which_model_netG', type=str, default='resnet_6blocks', help='selects model to use for netG')
         self.parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
 
 
@@ -55,6 +56,8 @@ class BaseOptions():
         self.parser.add_argument('--display_id', type=int, default=0, help='window id of the web display')
         self.parser.add_argument('--identity', type=float, default=0.0, help='use identity mapping. Setting identity other than 1 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set optidentity = 0.1')
 
+
+        self.parser.add_argument('--reconstruction_classifier', type=int, default=0, help='use identity mapping. ')
         self.initialized = True
 
     def parse(self):

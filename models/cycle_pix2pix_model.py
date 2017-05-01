@@ -312,7 +312,6 @@ class CycleGANPix2PixModel(BaseModel):
 
 
     def get_current_visuals(self):
-        st()
         if self.inputType in 'BC':
             real_B = util.tensor2im(self.real_B.data)
             fake_C=self.netG_BC.forward(self.real_B)

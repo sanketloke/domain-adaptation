@@ -26,6 +26,8 @@ class ToLabelTensor(object):
         for i in range(0,shape[0]):
             for j in range(0,shape[1]):
                 mod_arr[i][j]=image_array[i][j][0]*pow(10,6) + image_array[i][j][1]*pow(10,3) + image_array[i][j][0]
+                if mod_arr[i][j] not in color2id:
+                    mod_arr[i][j]= 0
         #print mod_arr  
         def check_val(temp):
             class_val = id2trainId[color2id[temp]]

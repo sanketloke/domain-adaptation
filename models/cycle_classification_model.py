@@ -10,14 +10,34 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 import sys
+from networks import network_classification_model
+import torch.nn.functional as F
 
 
-
-class CycleGANPix2PixModel(BaseModel):
+class CycleGANClassificationModel(BaseModel):
 	
     def name(self):
-        return 'CycleGAN_Pix2PixModel'
+        return 'CycleGANClassificationModel'
 
+
+    #Cite Source!
+    def cross_entropy2d(self,inputV, target, weight=None, size_average=True):
+        # input: (n, c, h, w), target: (n, h, w)
+        n, c, h, w = inputV.size()
+        # log_p: (n, c, h, w)
+        log_p = F.log_softmax(inputV)
+        # log_p: (n*h*w, c)
+        log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
+        log_p = log_p[target.view(n, h, w, 1).repeat(1, 1, 1, c) >= 0]
+        log_p = log_p.view(-1, c)
+        # target: (n*h*w,)
+        mask = target >= 0
+        target = target[mask]
+        loss = F.nll_loss(log_p, target.long(), weight=weight, size_average=False)
+        if size_average:
+            #print mask.data.sum()
+            loss /= mask.data.sum()
+        return loss
 
     def initialize(self, opt):
     	BaseModel.initialize(self, opt)
@@ -42,7 +62,7 @@ class CycleGANPix2PixModel(BaseModel):
                                     opt.which_model_netG, opt.norm, self.gpu_ids)
 
                 # load/define networks
-        self.netG_BC = FCN8s(num_classes=21)
+        self.netG_BC = network_classification_model('FCN16',self.gpu_ids,num_classes=22)
 
                 # load/define networks
         self.netG_BA = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
@@ -120,19 +140,19 @@ class CycleGANPix2PixModel(BaseModel):
     def set_input(self, input, inputType):
         self.inputType =inputType
 
-        if inputType is 'BC':
+        if self.inputType in 'BC':
             input_B1=input['B_image']
             self.input_real_B.resize_(input_B1.size()).copy_(input_B1)
             input_B1label=input['B_label']
             self.input_real_C_givenB.resize_(input_B1label.size()).copy_(input_B1label)
         
-        elif inputType is 'AC':
+        elif self.inputType in 'AC':
             input_A1=input['A_image']
             input_A1label=input['A_label']
             self.input_real_A.resize_(input_A1.size()).copy_(input_A1)
             self.input_real_C_givenA.resize_(input_A1label.size()).copy_(input_A1label)
         
-        elif inputType is 'AB':
+        elif self.inputType in 'AB':
             inputAB_image_1=input['AB_image_1']
             inputAB_image_2=input['AB_image_2']
             self.input_real_A_unlabeled.resize_(inputAB_image_1.size()).copy_(inputAB_image_1)
@@ -143,17 +163,17 @@ class CycleGANPix2PixModel(BaseModel):
 
 
     def forward(self):
-        if self.inputType is 'AC':
+        if self.inputType in 'AC':
             self.real_A = Variable(self.input_real_A)
             self.fake_C_given_A = self.netG_ABC.forward(self.real_A)
             self.real_C_givenA=Variable(self.input_real_C_givenA)
 
-        if self.inputType is 'BC':
+        if self.inputType in 'BC':
             self.real_B = Variable(self.input_real_B)
             self.fake_C_given_B = self.netG_ABC.forward(self.real_B)
             self.real_C_givenB=Variable(self.input_real_C_givenB)
 
-        if self.inputType is 'AB':
+        if self.inputType in 'AB':
             self.unlabeled_A=Variable(self.input_real_A_unlabeled)
             self.unlabeled_B=Variable(self.input_real_B_unlabeled)
 
@@ -167,7 +187,7 @@ class CycleGANPix2PixModel(BaseModel):
         # forward
         self.forward()
         # G_A and G_B
-        if self.inputType is 'AC':
+        if self.inputType in 'AC':
             # self.optimizer_D_C.zero_grad()
             # self.backward_D_C_givenG_AC()
             # self.optimizer_D_C.step()
@@ -176,12 +196,12 @@ class CycleGANPix2PixModel(BaseModel):
             self.backward_G_AC()
             self.optimizer_G_AC.step()
 
-            if opt.reconstruction_classifier>0:
+            if self.opt.reconstruction_classifier>0:
 	            self.optimizer_G_BA.zero_grad()
 	            self.backward_G_BA()
 	            self.optimizer_G_BA.step()
 
-        if self.inputType is 'BC':
+        if self.inputType in 'BC':
             # self.optimizer_D_C.zero_grad()
             # self.backward_D_C_givenG_BC()
             # self.optimizer_D_C.step()
@@ -190,14 +210,7 @@ class CycleGANPix2PixModel(BaseModel):
             self.backward_G_BC()
             self.optimizer_G_BC.step()
 
-            if opt.reconstruction_classifier>0:
-	            self.optimizer_G_BA.zero_grad()
-	            self.backward_G_BA()
-	            self.optimizer_G_BA.step()
-
-        if self.inputType is 'AB':
-            # self.unlabeled_A=Variable(self.input_real_A_unlabeled)
-            # self.unlabeled_B=Variable(self.input_real_B_unlabeled)
+        if self.inputType in 'AB':
             self.optimizer_G.zero_grad()
             self.backward_G(self.unlabeled_A,self.unlabeled_B)
             self.optimizer_G.step()
@@ -317,7 +330,7 @@ class CycleGANPix2PixModel(BaseModel):
         # fake_AC=torch.cat((self.real_A,fake_C),1)
         # pred_fake = self.netD_C.forward(fake_AC)
         # self.loss_G_AC_GAN = self.criterionGAN(pred_fake,True)
-        self.loss_G_AC_L1= self.criterionL1(fake_C,self.real_C_givenA)
+        self.loss_G_AC_L1= self.cross_entropy2d(fake_C,self.real_C_givenA)
         # self.loss_G_AC = self.loss_G_AC_GAN +self.loss_G_AC_L1
         self.loss_G_AC_L1.backward()
 
@@ -326,28 +339,28 @@ class CycleGANPix2PixModel(BaseModel):
         # fake_BC=torch.cat((self.real_B,fake_C),1)
         # pred_fake = self.netD_C.forward(fake_BC)
         # self.loss_G_BC_GAN = self.criterionGAN(pred_fake,True)
-        self.loss_G_BC_L1= self.criterionL1(fake_C,self.real_C_givenB)
+        self.loss_G_BC_L1= self.cross_entropy2d(fake_C,self.real_C_givenB)
         # self.loss_G_BC = self.loss_G_BC_GAN +self.loss_G_BC_L1
         self.loss_G_BC_L1.backward()
 
 
 
     def get_current_visuals(self):
-        if self.inputType is 'BC':
+        if self.inputType in 'BC':
             real_B = util.tensor2im(self.real_B.data)
             fake_C=self.netG_BC.forward(self.real_B)
             fake_C = util.tensor2im(fake_C.data)
             real_C_givenB = util.tensor2im(self.real_C_givenB.data)
             return OrderedDict([('real_B', real_B), ('fake_C', fake_C), ('real_C_givenB', real_C_givenB)])
 
-        if self.inputType is 'AC':
+        if self.inputType in 'AC':
             real_A = util.tensor2im(self.real_A.data)
             fake_C=self.netG_BC.forward(self.real_A)
             fake_C = util.tensor2im(fake_C.data)
             real_C_givenA = util.tensor2im(self.real_C_givenA.data)
             return OrderedDict([('real_A', real_A), ('fake_C', fake_C), ('real_C_givenA', real_C_givenA)])
 
-        if self.inputType is 'AB':
+        if self.inputType in 'AB':
             real_A = util.tensor2im(self.real_A.data)
             fake_B = util.tensor2im(self.fake_B.data)
             rec_A  = util.tensor2im(self.rec_A.data)
@@ -401,17 +414,12 @@ class CycleGANPix2PixModel(BaseModel):
 
     def get_current_errors(self):
         print 'Supervised Loss'
-        if inputType is 'AC':
-            return OrderedDict([('G_GAN', self.loss_G_AC_GAN.data[0]),
-                    ('G_L1', self.loss_AC_L1.data[0]),
-                    ('D_real', self.loss_D_AC_real.data[0]),
-                    ('D_fake', self.loss_D_AC_fake.data[0])
+        if self.inputType in 'AC':
+            return OrderedDict([('G_AC_L1', self.loss_G_AC_L1.data[0]),
+                    ('loss_G_BA_L1', self.loss_G_BA_L1.data[0]),
             ])
-        elif inputType is 'BC':
-            return OrderedDict([('G_GAN', self.loss_G_BC_GAN.data[0]),
-                    ('G_L1', self.loss_BC_L1.data[0]),
-                    ('D_real', self.loss_D_BC_real.data[0]),
-                    ('D_fake', self.loss_D_BC_fake.data[0])
+        elif self.inputType in 'BC':
+            return OrderedDict([('G_GAN', self.loss_G_BC_L1.data[0])
             ])
         else:
             D_A = self.loss_D_A.data[0]
