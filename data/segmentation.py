@@ -71,7 +71,6 @@ class SegmentationDataset(data.Dataset):
         self.loader = loader
 
     def __getitem__(self, index):
-        print index
         if self.mode is 'train':
             image_path = self.image_train[index]
             label_path = self.label_train[index]

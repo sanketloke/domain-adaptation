@@ -21,6 +21,9 @@ import evaluation.metrics
 
 labels = __import__('data.labels')
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 from data.custom_transforms import DownSizeLabelTensor
@@ -95,7 +98,58 @@ print 'Dataset A Size:'+str(len(domainAdata))
 print 'Dataset B Size:'+str(len(domainBdata))
 print 'Dataset AB Size:' +str(len(cycle_data_loader))
 avgtimetaken=[]
-for epoch in range(1, opt.niter + opt.niter_decay + 1):
+
+
+model.mode='cycle'
+
+print 'Pretraining CycleGAN'
+for epoch in range(1, opt.niter + opt.niter_decay + 1): #opt.niter + opt.niter_decay + 1
+    epoch_start_time = time.time()
+    dataset_iter = dataset.__iter__()
+    gc.collect()
+    print 'Starting new epoch'
+    iter=0
+    for batch in dataset:
+      if iter%20==0:
+        print 'Epoch :'+str(epoch)+' Iteratiom:'+str(iter)
+      data={}
+      data['AB_image_1'] = batch['A']
+      data['AB_image_2'] = batch['B']
+      iter+=1
+      iter_start_time = time.time()
+      total_steps += opt.batchSize
+      epoch_iter = total_steps % num_train
+      model.set_input(data,'AB')
+      model.optimize_parameters()
+      if total_steps % opt.display_freq == 0:
+          visualizer.display_current_results(model.get_current_visuals(), epoch)
+      if total_steps % opt.print_freq == 0:
+          errors = model.get_current_errors()
+          visualizer.print_current_errors(epoch, epoch_iter, errors, iter_start_time)
+          if opt.display_id > 0:
+              visualizer.plot_current_errors(epoch, epoch_iter, opt, errors)
+
+      if total_steps % opt.save_latest_freq == 0:
+          print('saving the latest model (epoch %d, total_steps %d)' %
+                (epoch, total_steps))
+          model.save('latest')
+
+    if epoch % opt.save_epoch_freq == 0:
+        print('saving the model at the end of epoch %d, iters %d' %
+              (epoch, total_steps))
+        model.save('latest')
+        model.save(epoch)
+
+    print('End of epoch %d / %d \t Time Taken: %d sec' %
+          (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
+
+    if epoch > opt.niter:
+        model.update_learning_rate()
+
+print 'Pretraining Done!!'
+print 'Starting Combined Training' 
+
+for epoch in range(1,opt.niter + opt.niter_decay + 1): # opt.niter + opt.niter_decay + 1
     epoch_start_time = time.time()
     domainAdata_iter = domainAdataloader.__iter__()
     domainBdata_iter = domainBdataloader.__iter__()
@@ -121,9 +175,9 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
 
     avgcountAC=0
     avgcountBC=0
+    iter=0
     for i in data_sample_list:
       s=time.time()
-      print i
       try:
         if i in 'AB':
           batch_n= next(dataset_iter)
@@ -145,7 +199,7 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
       iter_start_time = time.time()
       total_steps += opt.batchSize
       epoch_iter = total_steps % num_train
-      
+      print total_steps
       model.set_input(data,i)
       model.optimize_parameters()
       e=time.time()
@@ -170,9 +224,9 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
           visualizer.display_current_results(model.get_current_visuals(), epoch)
       if total_steps % opt.print_freq == 0:
           errors = model.get_current_errors()
-          visualizer.print_current_errors(epoch, epoch_iter, errors, iter_start_time)
+          visualizer.print_current_errors(epoch, total_steps, errors, iter_start_time)
           if opt.display_id > 0:
-              visualizer.plot_current_errors(epoch, epoch_iter, opt, errors)
+              visualizer.plot_current_errors(epoch, total_steps, opt, errors)
 
       if total_steps % opt.save_latest_freq == 0:
           print('saving the latest model (epoch %d, total_steps %d)' %
@@ -204,12 +258,12 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
         domainAdata_iter_test = domainAdataloader.__iter__()
         domainBdata_iter_test = domainBdataloader.__iter__()
         mean_pixel_acc_test_A, mean_class_acc_test_A, mean_class_iou_test_A, per_class_acc_test_A, per_class_iou_test_A=0,0,0,np.zeros((opt.num_classes)),np.zeros((opt.num_classes))
-        for i in domainAdata_iter_test:
-            batch_n= next()
+        for i in range(0,len(domainAdata_test)):
+            batch_n= next(domainAdata_iter_test)
             data={}
             data['A_image'] = batch_n[0][0]
             data['A_label'] = ds1.downsize(ds1.downsize(batch_n[1][0]).data).data
-            st()
+            model.set_input(data,'AC')
             a,b,c,d,e=model.test()
             mean_pixel_acc_test_A +=a
             mean_class_acc_test_A +=b
@@ -234,6 +288,7 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
             data={}
             data['B_image'] = batch_n[0][0]
             data['B_label'] = ds1.downsize(ds1.downsize(batch_n[1][0]).data).data
+            model.set_input(data,'BC')
             a,b,c,d,e=model.test()
             mean_pixel_acc_test_B +=a
             mean_class_acc_test_B +=b
@@ -251,8 +306,10 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
         print 'Mean Class IoU (Domain B):'+str(mean_class_iou_test_B)
         print 'Per Class Accuracy (Domain B):'+str(per_class_acc_test_B)
         print 'Per Class IoU (Domain B):'+str(per_class_iou_test_B)
-      
-        test_epoch_results.append((mean_pixel_acc_test_A, mean_class_acc_test_A, mean_class_iou_test_A, per_class_acc_test_A, per_class_iou_test_A),(mean_pixel_acc_test_B, mean_class_acc_test_B, mean_class_iou_test_B, per_class_acc_test_B, per_class_iou_test_B))
+        
+        test_epoch_results.append([[mean_pixel_acc_test_A, mean_class_acc_test_A, mean_class_iou_test_A, per_class_acc_test_A, per_class_iou_test_A],[mean_pixel_acc_test_B, mean_class_acc_test_B, mean_class_iou_test_B, per_class_acc_test_B, per_class_iou_test_B]])
+        with open("results.obj",'wb') as f:
+          pickle.dump(test_epoch_results,f)
 
 
     if epoch % opt.save_epoch_freq == 0:
@@ -266,7 +323,6 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
 
     if epoch > opt.niter:
         model.update_learning_rate()
-
 
 with open("results.obj",'wb') as f:
     pickle.dump(test_epoch_results,f)

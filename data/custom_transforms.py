@@ -65,7 +65,6 @@ class ToLabelTensor(object):
 
     def __init__(self, labels):
         self.labels = labels
-        print 'Initialized'
 
     def __call__(self, img):
         return self.image2label(img)

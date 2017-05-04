@@ -9,7 +9,7 @@ class BaseOptions():
 
     def initialize(self):
         
-        self.parser.add_argument('--batchSize', type=int, default=3, help='input batch size')
+        self.parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
         self.parser.add_argument('--loadSize', type=int, default=1024, help='scale images to this size')
         self.parser.add_argument('--loadSize2', type=int, default=1052, help='scale images to this size')
         self.parser.add_argument('--fineSize', type=int, default=960, help='then crop to this size')
@@ -27,9 +27,9 @@ class BaseOptions():
         self.parser.add_argument('--which_model_netD', type=str, default='basic', help='selects model to use for netD')
         self.parser.add_argument('--which_model_netG', type=str, default='resnet_6blocks', help='selects model to use for netG')
         self.parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
-        self.parser.add_argument('--split_ratio_AB', type=float, default=0.01, help='Split Ratio for CycleGAN input')
-        self.parser.add_argument('--split_ratio_A', type=float, default=0.01, help='Split Ratio for CycleGAN input')
-        self.parser.add_argument('--split_ratio_B', type=float, default=0.01, help='Split Ratio for CycleGAN input')
+        self.parser.add_argument('--split_ratio_AB', type=float, default=0.25, help='Split Ratio for CycleGAN input')
+        self.parser.add_argument('--split_ratio_A', type=float, default=0.05, help='Split Ratio for CycleGAN input')
+        self.parser.add_argument('--split_ratio_B', type=float, default=0.2, help='Split Ratio for CycleGAN input')
 
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2')
         
@@ -46,7 +46,7 @@ class BaseOptions():
         self.parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
         self.parser.add_argument('--nThreads', default=2, type=int, help='# threads for loading data')
         
-        self.parser.add_argument('--test_epoch_freq', type=int, default=1, help='model')
+        self.parser.add_argument('--test_epoch_freq', type=int, default=3, help='model')
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         self.parser.add_argument('--norm', type=str, default='batch', help='batch normalization or instance normalization')
         
@@ -58,7 +58,7 @@ class BaseOptions():
         self.parser.add_argument('--identity', type=float, default=0.0, help='use identity mapping. Setting identity other than 1 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set optidentity = 0.1')
 
         self.parser.add_argument('--factor', type=int, default=2, help='sd')
-        self.parser.add_argument('--reconstruction_classifier', type=int, default=0, help='use identity mapping. ')
+        self.parser.add_argument('--reconstruction_classifier', type=int, default=1, help='use identity mapping. ')
         self.initialized = True
 
     def parse(self):

@@ -45,7 +45,7 @@ class CycleGANClassificationModel(BaseModel):
     	BaseModel.initialize(self, opt)
     	self.isTrain = opt.isTrain
     	# define tensors
-
+        self.mode = 'all'
         self.input_real_A = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
         self.input_real_C_givenA = self.Tensor(opt.batchSize, opt.input_nc,
@@ -117,6 +117,8 @@ class CycleGANClassificationModel(BaseModel):
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
             self.optimizer_G_BA=torch.optim.Adam(self.netG_BA.parameters(),
+                                                lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G_AB=torch.optim.Adam(self.netG_AB.parameters(),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_AB.parameters(),self.netG_BA.parameters()),
@@ -255,7 +257,6 @@ class CycleGANClassificationModel(BaseModel):
 
 
     def backward_G(self,rA,rB):
-        print "Update the Cycle GAN"
         lambda_idt = self.opt.identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
@@ -424,30 +425,32 @@ class CycleGANClassificationModel(BaseModel):
     def update_learning_rate(self):
         lrd = self.opt.lr / self.opt.niter_decay
         lr = self.old_lr - lrd
-        for param_group in self.optimizer_D_C.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G_BC.param_groups:
-            param_group['lr'] = lr
 
-        for param_group in self.optimizer_D_A.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_D_B.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G_AC.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G_BA.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G_ABC.param_groups:
-            param_group['lr'] = lr
-
-
+        if self.mode is 'all' or self.mode is 'cycle':
+            for param_group in self.optimizer_D_A.param_groups:
+                param_group['lr'] = lr
+            for param_group in self.optimizer_D_B.param_groups:
+                param_group['lr'] = lr
+            for param_group in self.optimizer_G_BA.param_groups:
+                param_group['lr'] = lr
+            for param_group in self.optimizer_G_AB.param_groups:
+                param_group['lr'] = lr
+        
+        if self.mode is 'all':    
+            for param_group in self.optimizer_D_C.param_groups:
+                param_group['lr'] = lr
+            for param_group in self.optimizer_G_AC .param_groups:
+                param_group['lr'] = lr
+            for param_group in self.optimizer_G_BC.param_groups:
+                param_group['lr'] = lr
+            for param_group in self.optimizer_G.param_groups:
+                param_group['lr'] = lr
         print('update learning rate: %f -> %f' % (self.old_lr, lr))
         self.old_lr = lr
 
 
 
     def get_current_errors(self):
-        print 'Supervised Loss'
         if self.inputType in 'AC':
             if self.opt.reconstruction_classifier>0:
                 q=('loss_G_BA_L1', self.loss_G_BA_L1.data[0])
