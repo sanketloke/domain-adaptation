@@ -1,0 +1,4 @@
+srun -p short -t 08:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python train.py |& tee task.log
+
+see log for erros:
+cat task.log
