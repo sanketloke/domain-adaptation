@@ -13,13 +13,11 @@ import sys
 from networks import network_classification_model
 import torch.nn.functional as F
 
-import evaluation.metrics
 
-
-class CycleGANClassificationModel(BaseModel):
-	
+class DomainClassificationModel(BaseModel):
+    
     def name(self):
-        return 'CycleGANClassificationModel'
+        return 'DomainClassificationModel'
 
 
     #Cite Source!
@@ -42,17 +40,18 @@ class CycleGANClassificationModel(BaseModel):
         return loss
 
     def initialize(self, opt):
-    	BaseModel.initialize(self, opt)
-    	self.isTrain = opt.isTrain
-    	# define tensors
+        BaseModel.initialize(self, opt)
+        self.isTrain = opt.isTrain
+        # define tensors
 
         self.input_real_A = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
         self.input_real_C_givenA = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
         self.input_real_B = self.Tensor(opt.batchSize, opt.input_nc,
-                                   opt.fineSize, opt.fineSize)
-        self.input_real_C_givenB = self.Tensor(opt.batchSize, opt.input_nc,
+         
+         #Commenting                          opt.fineSize, opt.fineSize)
+        ###########subha###########self.input_real_C_givenB = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
         self.input_real_A_unlabeled = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
@@ -62,20 +61,26 @@ class CycleGANClassificationModel(BaseModel):
         # load/define networks
         self.netG_AB = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
                                     opt.which_model_netG, opt.norm, self.gpu_ids)
-        self.num_classes=self.opt.num_classes
-        self.netG_BC = network_classification_model('FCN16',self.gpu_ids,num_classes=self.opt.num_classes)
 
                 # load/define networks
-        self.netG_BA = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
-                                    opt.which_model_netG, opt.norm, self.gpu_ids)
+        self.netG_BC = network_classification_model('FCN16',self.gpu_ids,num_classes=22)
+
+                # load/define networks
+        ###########subha###########self.netG_BA = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
+                         #           opt.which_model_netG, opt.norm, self.gpu_ids)
+
+        z=list(list(self.netG_AB.children())[0].children()) 
+        temp=torch.nn.Sequential(*z[:10])
+        self.netG_BC = torch.nn.Sequential(temp,network_classification_model('FCN16',self.gpu_ids,num_classes=22))
+
 
         self.netG_ABC= torch.nn.Sequential(self.netG_AB, self.netG_BC)
         
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
-            self.netD_A = networks.define_D(opt.output_nc, opt.ndf,
-                                         opt.which_model_netD,
-                                         opt.n_layers_D, use_sigmoid, self.gpu_ids)
+            ###########subha########### self.netD_A = networks.define_D(opt.output_nc, opt.ndf,
+                                  #       opt.which_model_netD,
+                                  #       opt.n_layers_D, use_sigmoid, self.gpu_ids)
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf,
                                          opt.which_model_netD,
                                          opt.n_layers_D, use_sigmoid, self.gpu_ids)
@@ -88,12 +93,12 @@ class CycleGANClassificationModel(BaseModel):
         if not self.isTrain or opt.continue_train:
             which_epoch = opt.which_epoch
             self.load_network(self.netG_AB, 'G_AB', which_epoch)
-            self.load_network(self.netG_BA, 'G_BA', which_epoch)
+           ###########subha###########self.load_network(self.netG_BA, 'G_BA', which_epoch)
             self.load_network(self.netG_BC, 'G_BC', which_epoch)
             self.netG_ABC=torch.nn.Sequential(self.netG_AB,self.netG_BC)
             if self.isTrain:
                 self.load_network(self.netD_A, 'D_A', which_epoch)
-                self.load_network(self.netD_B, 'D_B', which_epoch)
+           ###########subha###########     self.load_network(self.netD_B, 'D_B', which_epoch)
                 self.load_network(self.netD_C, 'D_C', which_epoch)
 
         if self.isTrain:
@@ -116,8 +121,8 @@ class CycleGANClassificationModel(BaseModel):
             self.optimizer_D_C = torch.optim.Adam(self.netD_C.parameters(),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
-            self.optimizer_G_BA=torch.optim.Adam(self.netG_BA.parameters(),
-                                                lr=opt.lr, betas=(opt.beta1, 0.999))
+           ###########subha###########  self.optimizer_G_BA=torch.optim.Adam(self.netG_BA.parameters(),
+                                  #              lr=opt.lr, betas=(opt.beta1, 0.999))
 
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_AB.parameters(),self.netG_BA.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -130,7 +135,7 @@ class CycleGANClassificationModel(BaseModel):
 
             print('---------- Networks initialized -------------')
             networks.print_network(self.netG_AB)
-            networks.print_network(self.netG_BA)
+           ###########subha###########  networks.print_network(self.netG_BA)
             networks.print_network(self.netG_BC)
             networks.print_network(self.netD_A)
             networks.print_network(self.netD_B)
@@ -147,60 +152,33 @@ class CycleGANClassificationModel(BaseModel):
             input_B1label=input['B_label']
             self.input_real_C_givenB.resize_(input_B1label.size()).copy_(input_B1label)
         
-        elif self.inputType in 'AC':
-            input_A1=input['A_image']
-            input_A1label=input['A_label']
-            self.input_real_A.resize_(input_A1.size()).copy_(input_A1)
-            self.input_real_C_givenA.resize_(input_A1label.size()).copy_(input_A1label)
+       ###########subha###########  elif self.inputType in 'AC':
+            ###########subha########### input_A1=input['A_image']
+            ###########subha########### input_A1label=input['A_label']
+            ###########subha########### self.input_real_A.resize_(input_A1.size()).copy_(input_A1)
+            ###########subha########### self.input_real_C_givenA.resize_(input_A1label.size()).copy_(input_A1label)
         
         elif self.inputType in 'AB':
             inputAB_image_1=input['AB_image_1']
             inputAB_image_2=input['AB_image_2']
             self.input_real_A_unlabeled.resize_(inputAB_image_1.size()).copy_(inputAB_image_1)
-            self.input_real_B_unlabeled.resize_(inputAB_image_2.size()).copy_(inputAB_image_2)
+            self.input_real_B.resize_(inputAB_image_2.size()).copy_(inputAB_image_2)
         else:
             print 'Please provide proper input for inputType'
             raise Exception('inputType inconsistent')
 
 
     def forward(self):
-        if self.inputType in 'AC':
-            self.real_A = Variable(self.input_real_A)
-            self.fake_C_given_A = self.netG_ABC.forward(self.real_A)
-            self.real_C_givenA=Variable(self.input_real_C_givenA)
+        ###########subha########### if self.inputType in 'AC':
+          ###########subha###########   self.real_A = Variable(self.input_real_A)
+           ###########subha###########  self.fake_C_given_A = self.netG_ABC.forward(self.real_A)
+            ###########subha########### self.real_C_givenA=Variable(self.input_real_C_givenA)
 
         if self.inputType in 'BC':
             self.real_B = Variable(self.input_real_B)
             self.fake_C_given_B = self.netG_ABC.forward(self.real_B)
             self.real_C_givenB=Variable(self.input_real_C_givenB)
 
-        if self.inputType in 'AB':
-            self.unlabeled_A=Variable(self.input_real_A_unlabeled)
-            self.unlabeled_B=Variable(self.input_real_B_unlabeled)
-
-            self.fake_B = self.netG_AB.forward(self.unlabeled_A)
-            self.rec_A= self.netG_AB.forward(self.fake_B)
-
-            self.fake_A = self.netG_AB.forward(self.unlabeled_B)
-            self.rec_B= self.netG_AB.forward(self.fake_A)
-
-    def test(self):
-        if self.inputType in 'AC':
-            self.real_A = Variable(self.input_real_A)
-            self.fake_C_given_A = self.netG_ABC.forward(self.real_A)
-            self.real_C_givenA=Variable(self.input_real_C_givenA)
-            #st()
-            l1=self.fake_C_given_A.cpu().data[0].numpy().argmax(0)
-            l2=self.input_real_C_givenA
-            return evaluation.metrics.get_all_scores(l1,l2.cpu().long().numpy(),self.num_classes)
-        if self.inputType in 'BC':
-            self.real_B = Variable(self.input_real_B)
-            self.fake_C_given_B = self.netG_ABC.forward(self.real_B)
-            self.real_C_givenB=Variable(self.input_real_C_givenB)
-            #st()
-            l1=self.fake_C_given_B.cpu().data[0].numpy().argmax(0)
-            l2=self.input_real_C_givenB
-            return evaluation.metrics.get_all_scores(l1,l2.cpu().long().numpy(),self.num_classes)
         if self.inputType in 'AB':
             self.unlabeled_A=Variable(self.input_real_A_unlabeled)
             self.unlabeled_B=Variable(self.input_real_B_unlabeled)
@@ -215,19 +193,19 @@ class CycleGANClassificationModel(BaseModel):
         # forward
         self.forward()
         # G_A and G_B
-        if self.inputType in 'AC':
+        #if self.inputType in 'AC':
             # self.optimizer_D_C.zero_grad()
             # self.backward_D_C_givenG_AC()
             # self.optimizer_D_C.step()
 
-            self.optimizer_G_AC.zero_grad()
-            self.backward_G_AC()
-            self.optimizer_G_AC.step()
+            ###########subha########### self.optimizer_G_AC.zero_grad()
+           ###########subha###########  self.backward_G_AC()
+            ###########subha########### self.optimizer_G_AC.step()
 
-            if self.opt.reconstruction_classifier>0:
-	            self.optimizer_G_BA.zero_grad()
-	            self.backward_G_BA()
-	            self.optimizer_G_BA.step()
+           ###########subha###########  if self.opt.reconstruction_classifier>0:
+           ###########subha###########      self.optimizer_G_BA.zero_grad()
+           ###########subha###########      self.backward_G_BA()
+           ###########subha########### self.optimizer_G_BA.step()
 
         if self.inputType in 'BC':
             # self.optimizer_D_C.zero_grad()
@@ -240,13 +218,11 @@ class CycleGANClassificationModel(BaseModel):
 
         if self.inputType in 'AB':
             self.optimizer_G.zero_grad()
-            self.real_A=self.unlabeled_A
-            self.real_B= self.unlabeled_B
             self.backward_G(self.unlabeled_A,self.unlabeled_B)
             self.optimizer_G.step()
-            self.optimizer_D_A.zero_grad()
-            self.backward_D_A()
-            self.optimizer_D_A.step()
+           ###########subha###########  self.optimizer_D_A.zero_grad()
+          ###########subha###########   self.backward_D_A()
+           ###########subha###########  self.optimizer_D_A.step()
             # D_B
             self.optimizer_D_B.zero_grad()
             self.backward_D_B()
@@ -289,11 +265,12 @@ class CycleGANClassificationModel(BaseModel):
         self.loss_cycle_A = self.criterionCycle(self.rec_A, rA) * lambda_A
         
         # Backward cycle loss
-        self.rec_B = self.netG_AB.forward(self.fake_A)
-        self.loss_cycle_B = self.criterionCycle(self.rec_B, rB) * lambda_B
+       ###########subha###########  self.rec_B = self.netG_AB.forward(self.fake_A)
+        ###########subha########### self.loss_cycle_B = self.criterionCycle(self.rec_B, rB) * lambda_B
         
 
         # combined loss
+        ###########I was not sure which to remove########################################
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
         self.loss_G.backward()
 
@@ -311,10 +288,10 @@ class CycleGANClassificationModel(BaseModel):
         loss_D.backward()
         return loss_D
 
-    def backward_D_A(self):
-        self.fake_B = self.netG_AB.forward(self.unlabeled_A)
-        fake_B = self.fake_B_pool.query(self.fake_B)
-        self.loss_D_A = self.backward_D_basic(self.netD_A, self.unlabeled_B, fake_B)
+   ###########subha###########  def backward_D_A(self):
+        ###########subha########### self.fake_B = self.netG_AB.forward(self.unlabeled_A)
+       ###########subha###########  fake_B = self.fake_B_pool.query(self.fake_B)
+       ###########subha###########  self.loss_D_A = self.backward_D_basic(self.netD_A, self.unlabeled_B, fake_B)
 
     def backward_D_B(self):
         self.fake_A = self.netG_BA.forward(self.unlabeled_B)
@@ -348,11 +325,11 @@ class CycleGANClassificationModel(BaseModel):
     #     self.loss_D_BC_real=q[1]
 
 
-   	def backward_G_BA(self):
-   		fake_B=netG_AB.forward(self.real_A)
-   		rec_A=netG_BA.forward(fake_B)
-   		self.loss_G_BA_L1= self.criterionL1(fake_B,self.real_A)
-   		self.loss_G_BA_L1.backward()
+    def backward_G_BA(self):
+        ###########subha########### fake_B=netG_AB.forward(self.real_A)
+        rec_A=netG_BA.forward(fake_B)
+        self.loss_G_BA_L1= self.criterionL1(fake_B,self.real_A)
+        self.loss_G_BA_L1.backward()
 
 
     def backward_G_AC(self):
@@ -379,20 +356,16 @@ class CycleGANClassificationModel(BaseModel):
         if self.inputType in 'BC':
             real_B = util.tensor2im(self.real_B.data)
             fake_C=self.netG_BC.forward(self.real_B)
-            from data.custom_transforms import ToLabelTensor
-            labels = __import__('data.labels')
-            mod_fakeC=ToLabelTensor(labels.labels.labels).label2image(fake_C.cpu().data[0].numpy().argmax(0))
-            mod_realC=ToLabelTensor(labels.labels.labels).label2image(self.real_C_givenB.cpu().int().data[0].numpy())
-            return OrderedDict([('real_B', real_B), ('real_C_givenB', mod_realC),('fake_C_givenB',mod_fakeC)])
+            fake_C = util.tensor2im(fake_C.data)
+            real_C_givenB = util.tensor2im(self.real_C_givenB.data)
+            return OrderedDict([('real_B', real_B), ('fake_C', fake_C), ('real_C_givenB', real_C_givenB)])
 
         if self.inputType in 'AC':
             real_A = util.tensor2im(self.real_A.data)
             fake_C=self.netG_BC.forward(self.real_A)
-            from data.custom_transforms import ToLabelTensor
-            labels = __import__('data.labels')
-            mod_fakeC=ToLabelTensor(labels.labels.labels).label2image(fake_C.cpu().data[0].numpy().argmax(0))
-            mod_realC=ToLabelTensor(labels.labels.labels).label2image(self.real_C_givenA.cpu().int().data[0].numpy())
-            return OrderedDict([('real_A', real_A), ('real_C_givenA', mod_realC) ,('fake_C_givenA',mod_fakeC)])
+            fake_C = util.tensor2im(fake_C.data)
+            real_C_givenA = util.tensor2im(self.real_C_givenA.data)
+            return OrderedDict([('real_A', real_A), ('fake_C', fake_C), ('real_C_givenA', real_C_givenA)])
 
         if self.inputType in 'AB':
             real_A = util.tensor2im(self.real_A.data)
@@ -413,10 +386,10 @@ class CycleGANClassificationModel(BaseModel):
 
     def save(self, label):
         use_gpu = self.gpu_ids is not None
-        self.save_network(self.netG_AB, 'G_AB', label, use_gpu)
+       ###########subha###########  self.save_network(self.netG_AB, 'G_AB', label, use_gpu)
         self.save_network(self.netG_BC, 'G_BC', label, use_gpu)
         self.save_network(self.netG_BA, 'netG_BA', label, use_gpu)
-        self.save_network(self.netD_A, 'D_A', label, use_gpu)
+       ###########subha###########  self.save_network(self.netD_A, 'D_A', label, use_gpu)
         self.save_network(self.netD_B, 'D_B', label, use_gpu)
         self.save_network(self.netD_C, 'D_C', label, use_gpu)
 
@@ -429,8 +402,8 @@ class CycleGANClassificationModel(BaseModel):
         for param_group in self.optimizer_G_BC.param_groups:
             param_group['lr'] = lr
 
-        for param_group in self.optimizer_D_A.param_groups:
-            param_group['lr'] = lr
+        ###########subha########### for param_group in self.optimizer_D_A.param_groups:
+           ###########subha###########  param_group['lr'] = lr
         for param_group in self.optimizer_D_B.param_groups:
             param_group['lr'] = lr
         for param_group in self.optimizer_G_AC.param_groups:
@@ -449,14 +422,9 @@ class CycleGANClassificationModel(BaseModel):
     def get_current_errors(self):
         print 'Supervised Loss'
         if self.inputType in 'AC':
-            if self.opt.reconstruction_classifier>0:
-                q=('loss_G_BA_L1', self.loss_G_BA_L1.data[0])
-                return OrderedDict([('G_AC_L1', self.loss_G_AC_L1.data[0]),
-                    q
-                ])
-            else:
-                return OrderedDict([('G_AC_L1', self.loss_G_AC_L1.data[0])
-                ])
+            return OrderedDict([('G_AC_L1', self.loss_G_AC_L1.data[0]),
+                    ('loss_G_BA_L1', self.loss_G_BA_L1.data[0]),
+            ])
         elif self.inputType in 'BC':
             return OrderedDict([('G_GAN', self.loss_G_BC_L1.data[0])
             ])

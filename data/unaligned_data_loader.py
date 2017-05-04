@@ -28,11 +28,11 @@ class UnalignedDataLoader(BaseDataLoader):
         
         # Dataset AB
         domainAdata = ImageFolder(root=opt.dataroot + '/' + opt.domain_A + '/images',
-                                transform=transform, return_paths=True,sort=False)
+                                transform=transform, return_paths=True,sort=False,split_ratio=opt.split_ratio_AB)
 
         # Dataset AB
         domainBdata = ImageFolder(root=opt.dataroot + '/' + opt.domain_B + '/images',
-                                transform=transform, return_paths=True,sort=False)
+                                transform=transform, return_paths=True,sort=False, split_ratio=opt.split_ratio_AB)
 
         data_loader_A = torch.utils.data.DataLoader(
             domainAdata,

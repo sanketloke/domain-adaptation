@@ -11,6 +11,7 @@ from random import shuffle
 from PIL import Image
 import os
 import os.path
+from math import floor
 
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
@@ -47,14 +48,14 @@ def default_loader(path):
 class ImageFolder(data.Dataset):
 
     def __init__(self, root, transform=None, return_paths=False,
-                 loader=default_loader,sort=True):
+                 loader=default_loader,sort=True,split_ratio=1):
         imgs = make_dataset(root)
         if len(imgs) == 0:
             raise(RuntimeError("Found 0 images in: " + root + "\n"
                                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
-
+        train_size = int(floor(split_ratio*len(imgs)))
         self.root = root
-        self.imgs = imgs
+        self.imgs = imgs[:train_size]
         self.transform = transform
         self.return_paths = return_paths
         self.loader = loader

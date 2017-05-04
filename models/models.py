@@ -1,5 +1,6 @@
 from  cycle_pix2pix_model import CycleGANPix2PixModel
 from cycle_classification_model import CycleGANClassificationModel
+from domain_classification_model import DomainClassificationModel
 def create_model(opt):
     model = None
     model = CycleGANClassificationModel()

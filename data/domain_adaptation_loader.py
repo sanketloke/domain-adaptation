@@ -64,7 +64,6 @@ class PairedData(object):
             A_image, A_image_paths= next(self.data_loader_A_images_iter)
             A_label, A_label_paths=next(self.data_loader_A_labels_iter)
             A_label_temp =  self.image2label(A_label[0])
-            st()
             return {'image': A_image, 'image_path': A_image_paths, 'label': A_label, 'label_path': A_label_paths}
         elif typePair is 'BC':
             B_image, B_image_paths=next(self.data_loader_B_images_iter)

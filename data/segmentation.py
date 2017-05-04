@@ -71,7 +71,7 @@ class SegmentationDataset(data.Dataset):
         self.loader = loader
 
     def __getitem__(self, index):
-
+        print index
         if self.mode is 'train':
             image_path = self.image_train[index]
             label_path = self.label_train[index]
@@ -102,7 +102,7 @@ class SegmentationDataset(data.Dataset):
 
 
     def __len__(self):
-        return len(self.images)
+        return len(self.image_train)
 
     def __len_train__(self):
         return len(self.image_train)
