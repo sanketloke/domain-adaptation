@@ -27,7 +27,7 @@ class BaseOptions():
         self.parser.add_argument('--which_model_netD', type=str, default='basic', help='selects model to use for netD')
         self.parser.add_argument('--which_model_netG', type=str, default='resnet_6blocks', help='selects model to use for netG')
         self.parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
-        self.parser.add_argument('--split_ratio_AB', type=float, default=0.25, help='Split Ratio for CycleGAN input')
+        self.parser.add_argument('--split_ratio_AB', type=float, default=0.5, help='Split Ratio for CycleGAN input')
         self.parser.add_argument('--split_ratio_A', type=float, default=0.05, help='Split Ratio for CycleGAN input')
         self.parser.add_argument('--split_ratio_B', type=float, default=0.2, help='Split Ratio for CycleGAN input')
 
