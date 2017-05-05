@@ -103,7 +103,7 @@ class SegmentationDataset(data.Dataset):
     def __len__(self):
         if self.mode is 'train':
             return len(self.image_train)
-        else
+        else:
             return len(self.image_test)
 
     def __len_train__(self):
