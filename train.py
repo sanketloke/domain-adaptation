@@ -102,53 +102,64 @@ avgtimetaken=[]
 
 model.mode='cycle'
 
+for batch in dataset:
+  qsa=batch
+  data={}
+  data['AB_image_1'] = batch['A']
+  data['AB_image_2'] = batch['B']
+  print 'Set input'
+  model.set_input(data,'AB')
+  print 'Optimize Parameters'
+  model.optimize_parameters()
+  break 
+print qsa
 print 'Pretraining CycleGAN'
-for epoch in range(1, opt.niter + opt.niter_decay + 1): #opt.niter + opt.niter_decay + 1
-    epoch_start_time = time.time()
-    dataset_iter = dataset.__iter__()
-    gc.collect()
-    print 'Starting new epoch'
-    iter=0
-    for batch in dataset:
-      if iter%20==0:
-        print 'Epoch :'+str(epoch)+' Iteratiom:'+str(iter)
-      data={}
-      data['AB_image_1'] = batch['A']
-      data['AB_image_2'] = batch['B']
-      iter+=1
-      iter_start_time = time.time()
-      total_steps += opt.batchSize
-      epoch_iter = total_steps % num_train
-      model.set_input(data,'AB')
-      model.optimize_parameters()
-      if total_steps % opt.display_freq == 0:
-          visualizer.display_current_results(model.get_current_visuals(), epoch)
-      if total_steps % opt.print_freq == 0:
-          errors = model.get_current_errors()
-          visualizer.print_current_errors(epoch, epoch_iter, errors, iter_start_time)
-          if opt.display_id > 0:
-              visualizer.plot_current_errors(epoch, epoch_iter, opt, errors)
+# for epoch in range(1, opt.niter + opt.niter_decay + 1): #opt.niter + opt.niter_decay + 1
+#     epoch_start_time = time.time()
+#     dataset_iter = dataset.__iter__()
+#     gc.collect()
+#     print 'Starting new epoch'
+#     iter=0
+#     for batch in dataset:
+#       if iter%20==0:
+#         print 'Epoch :'+str(epoch)+' Iteratiom:'+str(iter)
+#       data={}
+#       data['AB_image_1'] = batch['A']
+#       data['AB_image_2'] = batch['B']
+#       iter+=1
+#       iter_start_time = time.time()
+#       total_steps += opt.batchSize
+#       epoch_iter = total_steps % num_train
+#       model.set_input(data,'AB')
+#       model.optimize_parameters()
+#       if total_steps % opt.display_freq == 0:
+#           visualizer.display_current_results(model.get_current_visuals(), epoch)
+#       if total_steps % opt.print_freq == 0:
+#           errors = model.get_current_errors()
+#           visualizer.print_current_errors(epoch, epoch_iter, errors, iter_start_time)
+#           if opt.display_id > 0:
+#               visualizer.plot_current_errors(epoch, epoch_iter, opt, errors)
 
-      if total_steps % opt.save_latest_freq == 0:
-          print('saving the latest model (epoch %d, total_steps %d)' %
-                (epoch, total_steps))
-          model.save('latest')
+#       if total_steps % opt.save_latest_freq == 0:
+#           print('saving the latest model (epoch %d, total_steps %d)' %
+#                 (epoch, total_steps))
+#           model.save('latest')
 
-    if epoch % opt.save_epoch_freq == 0:
-        print('saving the model at the end of epoch %d, iters %d' %
-              (epoch, total_steps))
-        model.save('latest')
-        model.save(epoch)
+#     if epoch % opt.save_epoch_freq == 0:
+#         print('saving the model at the end of epoch %d, iters %d' %
+#               (epoch, total_steps))
+#         model.save('latest')
+#         model.save(epoch)
 
-    print('End of epoch %d / %d \t Time Taken: %d sec' %
-          (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
+#     print('End of epoch %d / %d \t Time Taken: %d sec' %
+#           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
-    if epoch > opt.niter:
-        model.update_learning_rate()
+#     if epoch > opt.niter:
+#         model.update_learning_rate()
 
 print 'Pretraining Done!!'
 print 'Starting Combined Training' 
-
+model.mode='all'
 for epoch in range(1,opt.niter + opt.niter_decay + 1): # opt.niter + opt.niter_decay + 1
     epoch_start_time = time.time()
     domainAdata_iter = domainAdataloader.__iter__()

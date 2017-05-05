@@ -348,12 +348,11 @@ class CycleGANClassificationModel(BaseModel):
     #     self.loss_D_BC_real=q[0]
     #     self.loss_D_BC_real=q[1]
 
-
-   	def backward_G_BA(self):
-   		fake_B=netG_AB.forward(self.real_A)
-   		rec_A=netG_BA.forward(fake_B)
-   		self.loss_G_BA_L1= self.criterionL1(fake_B,self.real_A)
-   		self.loss_G_BA_L1.backward()
+    def backward_G_BA(self):
+        fake_B=self.netG_AB.forward(self.real_A)
+        rec_A=self.netG_BA.forward(fake_B)
+        self.loss_G_BA_L1= self.criterionL1(fake_B,self.real_A)
+        self.loss_G_BA_L1.backward()
 
 
     def backward_G_AC(self):
