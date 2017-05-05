@@ -210,7 +210,6 @@ for epoch in range(1,opt.niter + opt.niter_decay + 1): # opt.niter + opt.niter_d
       iter_start_time = time.time()
       total_steps += opt.batchSize
       epoch_iter = total_steps % num_train
-      print total_steps
       model.set_input(data,i)
       model.optimize_parameters()
       e=time.time()
