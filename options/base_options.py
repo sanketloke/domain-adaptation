@@ -29,7 +29,7 @@ class BaseOptions():
         self.parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
         self.parser.add_argument('--split_ratio_AB', type=float, default=0.5, help='Split Ratio for CycleGAN input')
         self.parser.add_argument('--split_ratio_A', type=float, default=0.05, help='Split Ratio for CycleGAN input')
-        self.parser.add_argument('--split_ratio_B', type=float, default=0.2, help='Split Ratio for CycleGAN input')
+        self.parser.add_argument('--split_ratio_B', type=float, default=0.4, help='Split Ratio for CycleGAN input')
 
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2')
         
@@ -50,6 +50,7 @@ class BaseOptions():
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         self.parser.add_argument('--norm', type=str, default='batch', help='batch normalization or instance normalization')
         
+        self.parser.add_argument('--finetune', type=str,default=0, help='if true, takes images in order to make batches, otherwise takes them randomly')
 
 
         self.parser.add_argument('--serial_batches', action='store_true', help='if true, takes images in order to make batches, otherwise takes them randomly')

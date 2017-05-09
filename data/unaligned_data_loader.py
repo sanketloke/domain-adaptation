@@ -56,4 +56,4 @@ class UnalignedDataLoader(BaseDataLoader):
         return self.paired_data
 
     def __len__(self):
-        return len(self.dataset_A)
+        return min(len(self.dataset_A),len(self.dataset_B))

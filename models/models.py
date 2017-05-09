@@ -1,12 +1,24 @@
 from  cycle_pix2pix_model import CycleGANPix2PixModel
 from cycle_classification_model import CycleGANClassificationModel
-from domain_classification_model import DomainClassificationModel
+from domain_adversarial_classification_model import WildDomainAdaptationModel
+from fcn_model import FCNModel
 def create_model(opt):
     model = None
-    model = CycleGANClassificationModel()
-    model.initialize(opt)
-    print("model [%s] was created" % (model.name()))
-    return model
+    if opt.model=='fcnwild':
+        model = WildDomainAdaptationModel()
+        model.initialize(opt)
+        print("model [%s] was created" % (model.name()))
+        return model
+    if opt.model=='cycle_gan_seg':
+        model=CycleGANClassificationModel()
+        model.initialize(opt)
+        print("model [%s] was created" % (model.name()))
+        return model
+    if opt.model=='fcnonly':
+        model=FCNModel()
+        model.initialize(opt)
+        print("model [%s] was created" % (model.name()))
+        return model
     # print(opt.model)
     # if opt.model == 'cycle_gan':
     #     from .cycle_gan_model import CycleGANModel

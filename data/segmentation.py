@@ -27,6 +27,8 @@ def make_dataset(dir,sort=True,silent=True):
     labels = os.path.join(dir,'labels')
     imageList=[]
     labelList=[]
+    q=os.listdir(images)
+    q=sorted(q)
     for filename in os.listdir(images):
         if os.path.isfile(os.path.join(labels,filename)) and is_image_file(os.path.join(labels,filename)):
             imageList.append(os.path.join(images,filename))
@@ -101,10 +103,10 @@ class SegmentationDataset(data.Dataset):
 
 
     def __len__(self):
-        if self.mode is 'train':
-            return len(self.image_train)
-        else:
-            return len(self.image_test)
+        #if self.mode is 'train':
+        return len(self.image_train)
+        #else:
+        #    return len(self.image_test)
 
     def __len_train__(self):
         return len(self.image_train)

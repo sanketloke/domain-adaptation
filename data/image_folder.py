@@ -26,12 +26,7 @@ def is_image_file(filename):
 def make_dataset(dir,sort=True):
     images = []
     assert os.path.isdir(dir), '%s is not a valid directory' % dir
-    if sort:
-        q=sorted(os.walk(dir))
-    else:
-        q=shuffle(os.walk(dir))
-
-
+    q=sorted(os.walk(dir))
     for root, _, fnames in q:
         for fname in fnames:
             if is_image_file(fname):
@@ -54,8 +49,11 @@ class ImageFolder(data.Dataset):
             raise(RuntimeError("Found 0 images in: " + root + "\n"
                                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
         train_size = int(floor(split_ratio*len(imgs)))
+
         self.root = root
         self.imgs = imgs[:train_size]
+        if not sort:
+            imgs=shuffle(imgs)
         self.transform = transform
         self.return_paths = return_paths
         self.loader = loader

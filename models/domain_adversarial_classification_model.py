@@ -10,23 +10,45 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 import sys
+from networks import network_classification_model
+import torch.nn.functional as F
+import copy
+import evaluation.metrics
 
 
-
-class DomainClassificationModel(BaseModel):
+class WildDomainAdaptationModel(BaseModel):
     
     def name(self):
-        return 'DomainClassificationModel'
+        return 'WildDomainAdaptationModel'
 
+
+    #Cite Source!
+    def cross_entropy2d(self,inputV, target, weight=None, size_average=True):
+        # input: (n, c, h, w), target: (n, h, w)
+        n, c, h, w = inputV.size()
+        # log_p: (n, c, h, w)
+        log_p = F.log_softmax(inputV)
+        # log_p: (n*h*w, c)
+        log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
+        log_p = log_p[target.view(n, h, w, 1).repeat(1, 1, 1, c) >= 0]
+        log_p = log_p.view(-1, c)
+        # target: (n*h*w,)
+        mask = target >= 0
+        target = target[mask]
+        loss = F.nll_loss(log_p, target.long(), weight=weight, size_average=False)
+        if size_average:
+            #print mask.data.sum()
+            loss /= mask.data.sum()
+        return loss
 
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
         self.isTrain = opt.isTrain
         # define tensors
-
+        self.mode = 'all'
         self.input_real_A = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
-        self.input_real_C_givenA = syself.Tensor(opt.batchSize, opt.input_nc,
+        self.input_real_C_givenA = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
         self.input_real_B = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
@@ -36,44 +58,31 @@ class DomainClassificationModel(BaseModel):
                                    opt.fineSize, opt.fineSize)
         self.input_real_B_unlabeled = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
-
-        # load/define networks
-        self.netG_AB = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
-                                    opt.which_model_netG, opt.norm, self.gpu_ids)
-
-                # load/define networks
-        self.netG_BC = FCN32s(num_classes=21)
-
-                # load/define networks
-        self.netG_BA = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
-                                    opt.which_model_netG, opt.norm, self.gpu_ids)
-
-        self.netG_ABC= torch.nn.Sequential(self.netG_AB, self.netG_BC)
         
+
+        self.netG_BC = network_classification_model('FCN16',self.gpu_ids,num_classes=self.opt.num_classes)
+        copyfeat4=copy.deepcopy(self.netG_BC.feat4)
+        copyfeat5=copy.deepcopy(self.netG_BC.feat5)
+        self.netG_AMidAhead=torch.nn.Sequential(copyfeat4,copyfeat5)
+        self.netG_AMid=torch.nn.Sequential(self.netG_BC.feats,self.netG_AMidAhead[0],self.netG_AMidAhead[1])
+        self.netG_BMid=torch.nn.Sequential(self.netG_BC.feats,self.netG_BC.feat4,self.netG_BC.feat5)
+        self.netG_AC = network_classification_model('FCN16',self.gpu_ids,feats=self.netG_AMid[0],feat4=self.netG_AMid[1],feat5=self.netG_AMid[2],num_classes=self.opt.num_classes)
+        #self.netG_AC= torch.nn.Sequential(self.netG_AMid,self.netG_BC.fconn,self.netG_BC.score_fconn,self.netG_BC.score_feat4)
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
-            self.netD_A = networks.define_D(opt.output_nc, opt.ndf,
+            self.netD_AB = networks.define_D(512, opt.ndf,
                                          opt.which_model_netD,
                                          opt.n_layers_D, use_sigmoid, self.gpu_ids)
-            self.netD_B = networks.define_D(opt.input_nc, opt.ndf,
-                                         opt.which_model_netD,
-                                         opt.n_layers_D, use_sigmoid, self.gpu_ids)
-        
-            self.netD_C = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf,
-                                         opt.which_model_netD,
-                                         opt.n_layers_D, use_sigmoid, self.gpu_ids)
-
 
         if not self.isTrain or opt.continue_train:
             which_epoch = opt.which_epoch
-            self.load_network(self.netG_AB, 'G_AB', which_epoch)
-            self.load_network(self.netG_BA, 'G_BA', which_epoch)
             self.load_network(self.netG_BC, 'G_BC', which_epoch)
-            self.netG_ABC=torch.nn.Sequential(self.netG_AB,self.netG_BC)
+            self.load_network(self.netG_AMid,'AMid',which_epoch)
+            #self.netG_AMid==torch.nn.Sequential(self.netG_BC.feats,self.netG_AMidAhead[0],self.netG_AMidAhead[1])
+            self.netG_AC=  network_classification_model('FCN16',self.gpu_ids,feats=self.netG_AMid[0],feat4=self.netG_AMid[1],feat5=self.netG_AMid[2],fconn=self.netG_BC.fconn, score_fconn=self.netG_BC.score_fconn,score_feat4=self.netG_BC.score_feat4,num_classes=self.opt.num_classes)
+
             if self.isTrain:
-                self.load_network(self.netD_A, 'D_A', which_epoch)
-                self.load_network(self.netD_B, 'D_B', which_epoch)
-                self.load_network(self.netD_C, 'D_C', which_epoch)
+                self.load_network(self.netD_AB, 'D_AB', which_epoch)
 
         if self.isTrain:
             self.old_lr = opt.lr
@@ -87,171 +96,113 @@ class DomainClassificationModel(BaseModel):
             self.criterionIdt = torch.nn.L1Loss()
             self.criterionL1 = torch.nn.L1Loss()
             # initialize optimizers
-
-            self.optimizer_G_AC =torch.optim.Adam((self.netG_ABC.parameters()),
-                                                lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_G_BC= torch.optim.Adam( (self.netG_BC.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D_C = torch.optim.Adam(self.netD_C.parameters(),
+
+            self.optimizer_G_AMid=torch.optim.Adam(self.netG_AMid.parameters(),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
-            self.optimizer_G_BA=torch.optim.Adam(self.netG_BA.parameters(),
+            self.optimizer_D_AB = torch.optim.Adam(self.netD_AB.parameters(),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
-
-            self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_AB.parameters(),self.netG_BA.parameters()),
+            self.optimizer_G_AC = torch.optim.Adam(self.netD_AB.parameters(),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D_A = torch.optim.Adam(self.netD_A.parameters(),
-                                                lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D_B = torch.optim.Adam(self.netD_B.parameters(),
-                                                lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D_C = torch.optim.Adam(self.netD_C.parameters(),
-                                                lr=opt.lr, betas=(opt.beta1, 0.999))
-
             print('---------- Networks initialized -------------')
-            networks.print_network(self.netG_AB)
-            networks.print_network(self.netG_BA)
             networks.print_network(self.netG_BC)
-            networks.print_network(self.netD_A)
-            networks.print_network(self.netD_B)
-            networks.print_network(self.netD_C)
+            networks.print_network(self.netD_AB)
             print('-----------------------------------------------')
 
 
     def set_input(self, input, inputType):
         self.inputType =inputType
 
-        if inputType is 'BC':
+        if self.inputType in 'BC':
             input_B1=input['B_image']
             self.input_real_B.resize_(input_B1.size()).copy_(input_B1)
             input_B1label=input['B_label']
             self.input_real_C_givenB.resize_(input_B1label.size()).copy_(input_B1label)
         
-        elif inputType is 'AC':
+        elif self.inputType in 'AC':
             input_A1=input['A_image']
             input_A1label=input['A_label']
             self.input_real_A.resize_(input_A1.size()).copy_(input_A1)
             self.input_real_C_givenA.resize_(input_A1label.size()).copy_(input_A1label)
-        
-        elif inputType is 'AB':
+
+        elif self.inputType in 'AB':
             inputAB_image_1=input['AB_image_1']
             inputAB_image_2=input['AB_image_2']
             self.input_real_A_unlabeled.resize_(inputAB_image_1.size()).copy_(inputAB_image_1)
-            self.input_real_B.resize_(inputAB_image_2.size()).copy_(inputAB_image_2)
+            self.input_real_B_unlabeled.resize_(inputAB_image_2.size()).copy_(inputAB_image_2)
         else:
             print 'Please provide proper input for inputType'
             raise Exception('inputType inconsistent')
 
 
     def forward(self):
-        if self.inputType is 'AC':
+        if self.inputType in 'AC':
             self.real_A = Variable(self.input_real_A)
-            self.fake_C_given_A = self.netG_ABC.forward(self.real_A)
+            self.fake_C_given_A = self.netG_AC.forward(self.real_A)
             self.real_C_givenA=Variable(self.input_real_C_givenA)
-
-        if self.inputType is 'BC':
+        if self.inputType in 'BC':
             self.real_B = Variable(self.input_real_B)
-            self.fake_C_given_B = self.netG_ABC.forward(self.real_B)
+            self.fake_C_given_B = self.netG_BC.forward(self.real_B)
             self.real_C_givenB=Variable(self.input_real_C_givenB)
-
-        if self.inputType is 'AB':
+        if self.inputType in 'AB':
             self.unlabeled_A=Variable(self.input_real_A_unlabeled)
             self.unlabeled_B=Variable(self.input_real_B_unlabeled)
 
-            self.fake_B = self.netG_AB.forward(self.unlabeled_A)
-            self.rec_A= self.netG_AB.forward(self.fake_B)
 
-            self.fake_A = self.netG_AB.forward(self.unlabeled_B)
-            self.rec_B= self.netG_AB.forward(self.fake_A)
+    def test(self):
+        if self.inputType in 'AC':
+            self.real_A = Variable(self.input_real_A)
+            self.fake_C_given_A = self.netG_AC.forward(self.real_A)
+            self.real_C_givenA=Variable(self.input_real_C_givenA)
+            l1=self.fake_C_given_A.cpu().data[0].numpy().argmax(0)
+            l2=self.input_real_C_givenA
+            return evaluation.metrics.get_all_scores(l1,l2.cpu().long().numpy(),self.opt.num_classes)
+        if self.inputType in 'BC':
+            self.real_B = Variable(self.input_real_B)
+            self.fake_C_given_B = self.netG_BC.forward(self.real_B)
+            self.real_C_givenB=Variable(self.input_real_C_givenB)
+            l1=self.fake_C_given_B.cpu().data[0].numpy().argmax(0)
+            l2=self.input_real_C_givenB
+            return evaluation.metrics.get_all_scores(l1,l2.cpu().long().numpy(),self.opt.num_classes)
+        if self.inputType in 'AB':
+            return 
 
     def optimize_parameters(self):
         # forward
         self.forward()
         # G_A and G_B
-        if self.inputType is 'AC':
-            # self.optimizer_D_C.zero_grad()
-            # self.backward_D_C_givenG_AC()
-            # self.optimizer_D_C.step()
-
+        if self.inputType in 'AC':
             self.optimizer_G_AC.zero_grad()
             self.backward_G_AC()
             self.optimizer_G_AC.step()
 
-            if opt.reconstruction_classifier>0:
-                self.optimizer_G_BA.zero_grad()
-                self.backward_G_BA()
-                self.optimizer_G_BA.step()
-
-        if self.inputType is 'BC':
-            # self.optimizer_D_C.zero_grad()
-            # self.backward_D_C_givenG_BC()
-            # self.optimizer_D_C.step()
-
+        if self.inputType in 'BC':
             self.optimizer_G_BC.zero_grad()
             self.backward_G_BC()
             self.optimizer_G_BC.step()
 
-            if opt.reconstruction_classifier>0:
-                self.optimizer_G_BA.zero_grad()
-                self.backward_G_BA()
-                self.optimizer_G_BA.step()
-
-        if self.inputType is 'AB':
-            # self.unlabeled_A=Variable(self.input_real_A_unlabeled)
-            # self.unlabeled_B=Variable(self.input_real_B_unlabeled)
-            self.optimizer_G.zero_grad()
+        if self.inputType in 'AB':
+            self.real_A=self.unlabeled_A
+            self.real_B= self.unlabeled_B
+            self.optimizer_G_AMid.zero_grad()
             self.backward_G(self.unlabeled_A,self.unlabeled_B)
-            self.optimizer_G.step()
-            self.optimizer_D_A.zero_grad()
-            self.backward_D_A()
-            self.optimizer_D_A.step()
-            # D_B
-            self.optimizer_D_B.zero_grad()
-            self.backward_D_B()
-            self.optimizer_D_B.step()
+            self.optimizer_G_AMid.step()
+            self.optimizer_D_AB.zero_grad()
+            self.backward_D_AB()
+            self.optimizer_D_AB.step()
 
 
 
     def backward_G(self,rA,rB):
-        print "Update the Cycle GAN"
-        lambda_idt = self.opt.identity
-        lambda_A = self.opt.lambda_A
-        lambda_B = self.opt.lambda_B
-        # Identity loss
-        if lambda_idt > 0:
-            # G_A should be identity if real_B is fed.
-            self.idt_A = self.netG_AB.forward(rB)
-            self.loss_idt_A = self.criterionIdt(self.idt_A, rB) * lambda_B * lambda_idt
-            # G_B should be identity if real_A is fed.
-            self.idt_B = self.netG_BA.forward(rA)
-            self.loss_idt_B = self.criterionIdt(self.idt_B, rA) * lambda_A * lambda_idt
-        else:
-            self.loss_idt_A = 0
-            self.loss_idt_B = 0
-
         # GAN loss
         # D_A(G_A(A))
-        self.fake_B = self.netG_AB.forward(rA)
-        pred_fake = self.netD_A.forward(self.fake_B)
+        self.fake_B = self.netG_AMid.forward(rA)
+        pred_fake = self.netD_AB.forward(self.fake_B)
         self.loss_G_A = self.criterionGAN(pred_fake, True)
-        
-
-        # D_B(G_B(B))
-        self.fake_A = self.netG_BA.forward(rB)
-        pred_fake = self.netD_B.forward(self.fake_A)
-        self.loss_G_B = self.criterionGAN(pred_fake, True)
-
-
-        # Forward cycle loss
-        self.rec_A = self.netG_BA.forward(self.fake_B)
-        self.loss_cycle_A = self.criterionCycle(self.rec_A, rA) * lambda_A
-        
-        # Backward cycle loss
-        self.rec_B = self.netG_AB.forward(self.fake_A)
-        self.loss_cycle_B = self.criterionCycle(self.rec_B, rB) * lambda_B
-        
-
         # combined loss
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
+        self.loss_G = self.loss_G_A 
         self.loss_G.backward()
 
    
@@ -268,247 +219,72 @@ class DomainClassificationModel(BaseModel):
         loss_D.backward()
         return loss_D
 
-    def backward_D_A(self):
-        self.fake_B = self.netG_AB.forward(self.unlabeled_A)
+    def backward_D_AB(self):
+        self.fake_B = self.netG_AMid.forward(self.unlabeled_A)
         fake_B = self.fake_B_pool.query(self.fake_B)
-        self.loss_D_A = self.backward_D_basic(self.netD_A, self.unlabeled_B, fake_B)
-
-    def backward_D_B(self):
-        self.fake_A = self.netG_BA.forward(self.unlabeled_B)
-        fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_B =  self.backward_D_basic(self.netD_B, self.unlabeled_A, fake_A)
-
-
-    # def backward_D_C_givenG_X(self,netG,realA,realC,pool):
-    #     fake_C= netG.forward(realA)
-    #     fake_AC=pool.query(torch.cat((realA,fake_C),1))
-    #     pred_fake=self.netD_C.forward(fake_AC.detach())
-    #     loss_D_X_fake=self.criterionGAN(pred_fake,False)
-
-    #     #Real
-    #     real_AC=torch.cat((realA,realC),1)
-    #     pred_real= self.netD_C.forward(real_AC)
-    #     loss_D_X_real=self.criterionGAN(pred_real,True)
-
-    #     self.loss_D_X=(loss_D_X_real + loss_D_X_fake) * 0.5;
-    #     self.loss_D_X.backward()
-    #     return (loss_D_X_real,loss_D_X_fake)
-
-    # def backward_D_C_givenG_AC(self):
-    #     q= self.backward_D_C_givenG_X(self.netG_ABC,self.real_A,self.real_C_givenA,self.fake_AC_pool)
-    #     self.loss_D_AC_real=q[0]
-    #     self.loss_D_AC_fake=q[1]
-
-    # def backward_D_C_givenG_BC(self):
-    #     q=self.backward_D_C_givenG_X(self.netG_BC , self.real_B,self.real_C_givenB,self.fake_BC_pool) 
-    #     self.loss_D_BC_real=q[0]
-    #     self.loss_D_BC_real=q[1]
-
-
-    def backward_G_BA(self):
-        fake_B=netG_AB.forward(self.real_A)
-        rec_A=netG_BA.forward(fake_B)
-        self.loss_G_BA_L1= self.criterionL1(fake_B,self.real_A)
-        self.loss_G_BA_L1.backward()
+        real_B= self.netG_BMid.forward(self.unlabeled_B)
+        self.loss_D_A = self.backward_D_basic(self.netD_AB, real_B, fake_B)
 
 
     def backward_G_AC(self):
-        fake_C= self.netG_ABC.forward(self.real_A)
-        # fake_AC=torch.cat((self.real_A,fake_C),1)
-        # pred_fake = self.netD_C.forward(fake_AC)
-        # self.loss_G_AC_GAN = self.criterionGAN(pred_fake,True)
-        self.loss_G_AC_L1= self.criterionL1(fake_C,self.real_C_givenA)
-        # self.loss_G_AC = self.loss_G_AC_GAN +self.loss_G_AC_L1
+        fake_C= self.netG_AC.forward(self.real_A)
+        self.loss_G_AC_L1= self.cross_entropy2d(fake_C,self.real_C_givenA)
         self.loss_G_AC_L1.backward()
 
     def backward_G_BC(self):
         fake_C= self.netG_BC.forward(self.real_B)
-        # fake_BC=torch.cat((self.real_B,fake_C),1)
-        # pred_fake = self.netD_C.forward(fake_BC)
-        # self.loss_G_BC_GAN = self.criterionGAN(pred_fake,True)
-        self.loss_G_BC_L1= self.criterionL1(fake_C,self.real_C_givenB)
-        # self.loss_G_BC = self.loss_G_BC_GAN +self.loss_G_BC_L1
+        self.loss_G_BC_L1= self.cross_entropy2d(fake_C,self.real_C_givenB)
         self.loss_G_BC_L1.backward()
 
 
-
     def get_current_visuals(self):
-        if self.inputType is 'BC':
+        if self.inputType in 'BC':
             real_B = util.tensor2im(self.real_B.data)
             fake_C=self.netG_BC.forward(self.real_B)
-            fake_C = util.tensor2im(fake_C.data)
-            real_C_givenB = util.tensor2im(self.real_C_givenB.data)
-            return OrderedDict([('real_B', real_B), ('fake_C', fake_C), ('real_C_givenB', real_C_givenB)])
+            from data.custom_transforms import ToLabelTensor
+            labels = __import__('data.labels')
+            mod_fakeC=ToLabelTensor(labels.labels.labels).label2image(fake_C.cpu().data[0].numpy().argmax(0))
+            mod_realC=ToLabelTensor(labels.labels.labels).label2image(self.real_C_givenB.cpu().int().data[0].numpy())
+            return OrderedDict([('real_B', real_B), ('real_C_givenB', mod_realC),('fake_C_givenB',mod_fakeC)])
 
-        if self.inputType is 'AC':
+        if self.inputType in 'AC':
             real_A = util.tensor2im(self.real_A.data)
             fake_C=self.netG_BC.forward(self.real_A)
-            fake_C = util.tensor2im(fake_C.data)
-            real_C_givenA = util.tensor2im(self.real_C_givenA.data)
-            return OrderedDict([('real_A', real_A), ('fake_C', fake_C), ('real_C_givenA', real_C_givenA)])
-
-        if self.inputType is 'AB':
-            real_A = util.tensor2im(self.real_A.data)
-            fake_B = util.tensor2im(self.fake_B.data)
-            rec_A  = util.tensor2im(self.rec_A.data)
-            real_B = util.tensor2im(self.real_B.data)
-            fake_A = util.tensor2im(self.fake_A.data)
-            rec_B  = util.tensor2im(self.rec_B.data)
-            if self.opt.identity > 0.0:
-                idt_A = util.tensor2im(self.idt_A.data)
-                idt_B = util.tensor2im(self.idt_B.data)
-                return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A), ('idt_B', idt_B),
-                                    ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B), ('idt_A', idt_A)])
-            else:
-                return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A),
-                                    ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B)])
+            from data.custom_transforms import ToLabelTensor
+            labels = __import__('data.labels')
+            mod_fakeC=ToLabelTensor(labels.labels.labels).label2image(fake_C.cpu().data[0].numpy().argmax(0))
+            mod_realC=ToLabelTensor(labels.labels.labels).label2image(self.real_C_givenA.cpu().int().data[0].numpy())
+            return OrderedDict([('real_A', real_A), ('real_C_givenA', mod_realC) ,('fake_C_givenA',mod_fakeC)])
 
 
     def save(self, label):
         use_gpu = self.gpu_ids is not None
-        self.save_network(self.netG_AB, 'G_AB', label, use_gpu)
         self.save_network(self.netG_BC, 'G_BC', label, use_gpu)
-        self.save_network(self.netG_BA, 'netG_BA', label, use_gpu)
-        self.save_network(self.netD_A, 'D_A', label, use_gpu)
-        self.save_network(self.netD_B, 'D_B', label, use_gpu)
-        self.save_network(self.netD_C, 'D_C', label, use_gpu)
+        self.save_network(self.netG_AMid, 'G_AMid', label, use_gpu)
+        self.save_network(self.netD_AB, 'D_AB', label, use_gpu)
 
 
     def update_learning_rate(self):
         lrd = self.opt.lr / self.opt.niter_decay
-        lr = self.old_lr - lrd
-        for param_group in self.optimizer_D_C.param_groups:
+        lr = self.old_lr - lrd 
+        for param_group in self.optimizer_D_AB.param_groups:
             param_group['lr'] = lr
         for param_group in self.optimizer_G_BC.param_groups:
             param_group['lr'] = lr
-
-        for param_group in self.optimizer_D_A.param_groups:
+        for param_group in self.optimizer_G_AMid.param_groups:
             param_group['lr'] = lr
-        for param_group in self.optimizer_D_B.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G_AC.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G_BA.param_groups:
-            param_group['lr'] = lr
-        for param_group in self.optimizer_G_ABC.param_groups:
-            param_group['lr'] = lr
-
-
         print('update learning rate: %f -> %f' % (self.old_lr, lr))
         self.old_lr = lr
 
 
 
     def get_current_errors(self):
-        print 'Supervised Loss'
-        if inputType is 'AC':
-            return OrderedDict([('G_GAN', self.loss_G_AC_GAN.data[0]),
-                    ('G_L1', self.loss_AC_L1.data[0]),
-                    ('D_real', self.loss_D_AC_real.data[0]),
-                    ('D_fake', self.loss_D_AC_fake.data[0])
-            ])
-        elif inputType is 'BC':
-            return OrderedDict([('G_GAN', self.loss_G_BC_GAN.data[0]),
-                    ('G_L1', self.loss_BC_L1.data[0]),
-                    ('D_real', self.loss_D_BC_real.data[0]),
-                    ('D_fake', self.loss_D_BC_fake.data[0])
+        if self.inputType in 'AC':
+            return OrderedDict([('G_AC_L1', self.loss_G_AC_L1.data[0])])
+        elif self.inputType in 'BC':
+            return OrderedDict([('G_BC_L1', self.loss_G_BC_L1.data[0]) 
             ])
         else:
             D_A = self.loss_D_A.data[0]
             G_A = self.loss_G_A.data[0]
-            Cyc_A = self.loss_cycle_A.data[0]
-            D_B = self.loss_D_B.data[0]
-            G_B = self.loss_G_B.data[0]
-            Cyc_B = self.loss_cycle_B.data[0]
-            if self.opt.identity > 0.0:
-                idt_A = self.loss_idt_A.data[0]
-                idt_B = self.loss_idt_B.data[0]
-                return OrderedDict([('D_A', D_A), ('G_A', G_A), ('Cyc_A', Cyc_A), ('idt_A', idt_A),
-                                    ('D_B', D_B), ('G_B', G_B), ('Cyc_B', Cyc_B), ('idt_B', idt_B)])
-            else:
-                return OrderedDict([('D_A', D_A), ('G_A', G_A), ('Cyc_A', Cyc_A),
-                                    ('D_B', D_B), ('G_B', G_B), ('Cyc_B', Cyc_B)])
-
-
-        # #Supervised Loss if paired data has been added using setInput function
-        # if real_C_givenB not None:
-        #     self.optimizer_D_C.zero_grad()
-        #     self.backward_D_C_givenG_BC()
-        #     self.optimizer_D_C.step()
-
-        # if real_C_givenB not None:
-        #     self.optimizer_G_BC.zero_grad()
-        #     self.backward_G_BC()
-        #     self.optimizer_G_BC.step()
-
-        # if real_C_givenA not None:
-        #     self.optimizer_D_C.zero_grad()
-        #     self.backward_D_C_givenG_AC()
-        #     self.optimizer_D_C.step()
-
-        # if real_C_givenA not None:
-        #     self.optimizer_G_AC.zero_grad()
-        #     self.backward_G_AC()
-        #     self.optimizer_G_AC.step()
-
-        # self.optimizer_G.zero_grad()
-        # self.backward_G(real_A,unlabeled_B)
-        # self.optimizer_G.step()
-        # # D_A
-        # self.optimizer_D_A.zero_grad()
-        # self.backward_D_A(rB)
-        # self.optimizer_D_A.step()
-        # # D_B
-        # self.optimizer_D_B.zero_grad()
-        # self.backward_D_B(rA)
-        # self.optimizer_D_B.step()
-
-
-        # self.optimizer_G.zero_grad()
-        # self.backward_G(unlabeled_A,real_B)
-        # self.optimizer_G.step()
-        # self.optimizer_D_A.zero_grad()
-        # self.backward_D_A(rB)
-        # self.optimizer_D_A.step()
-
-        # # D_B
-        # self.optimizer_D_B.zero_grad()
-        # self.backward_D_B(rA)
-        # self.optimizer_D_B.step()
-
-
-
-
-
-    # def backward_D_C_givenG_AC(self):
-    #     print "Backward Prop for D (for domain A and B)"
-    #     #Check if supervised domain A-> domain C pair exists
-
-    #     fake_C= self.netG_ABC.forward(self.real_A)
-    #     fake_AC=self.fake_AC_pool.query(torch.cat((self.real_A,fake_C)))
-    #     pred_fake=self.netD_C.forward(fake_AC.detach())
-    #     self.loss_D_AC_fake=self.criterionGAN(pred_fake,False)
-
-    #     #Real
-    #     real_AC=torch.cat((real_A,real_C_givenA),1)
-    #     pred_real= self.netD_C.forward(real_AC)
-    #     self.loss_D_AC_real=self.criterionGAN(pred_real,True)
-
-    #     self.loss_D_AC=(self.loss_D_AC_real + self.loss_D_AC_fake) * 0.5;
-    #     self.loss_D_AC.backward()
-
-                        
-    # def backward_D_C_givenG_BC(self):
-    #     fake_C=self.netG_BC.forward(self.real_B)
-    #     fake_BC=self.fake_AC_pool.query(torch.cat(self.real_A,self.fake_C))
-    #     pred_fake=self.netD_C.forward(fake_BC.detach())
-    #     self.loss_D_BC_fake = self.criterionGAN(pred_fake,False)
-
-    #     real_BC=torch.cat((self.real_B,self.real_C_givenB),1)
-    #     pred_real=self.fake_BC_pool.query(torch.cat(self.real_B,self.fake_C))
-    #     self.loss_D_BC_real=self.criterionGAN(pred_real,True)
-
-    #     self.loss_D_BC=(self.loss_D_AC_real + self.loss_D_BC_fake) *0.5
-
-    #     self.loss_D_BC.backward()
-    412
+            return OrderedDict([('D_A', D_A), ('G_A', G_A)])

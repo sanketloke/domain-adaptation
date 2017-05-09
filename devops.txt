@@ -1,4 +1,80 @@
-srun -p short -t 08:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python train.py |& tee task.log
+srun -p short -t 08:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python train.py |& tee task_mod.log
 
 see log for erros:
-cat task.log
+cat task_mod.log
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python trainfcnwild.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=1 --name=fcnwild2 |& tee fcnwild2_mod.log
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python trainfcnwild.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=fcnwild1 |& tee fcnwild1_mod.log
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python trainfcnonly.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=fcnonly1 |& tee fcnonly1_mod.log
+
+##srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python trainfcnonly.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=fcnonly2 |& tee fcnonly2_mod.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python traincyclefcnmixmatch.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=cyclefcnmismatch1 |& tee cyclefcnmismatch1_mod.log
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python traincyclefcnmixmatch.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=cyclefcnmismatch2 |& tee cyclefcnmismatch2_mod.log
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python traincyclefcnsequential.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=cyclefcnsequential2 |& tee cyclefcnsequential_mod.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python traincyclefcnsequential.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=cyclefcnsequential2 |& tee cyclefcnsequential_mod.log
+
+
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python traincyclefcnsequential.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.05   --split_ratio_B=0.5  --finetune=0 --name=cyclefcnsequential2 |& tee cyclefcnsequential_mod.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python trainfcnwild.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.1   --split_ratio_B=0.5  --finetune=1 --name=fcnwild3 |& tee fcnwild3_mod.log
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python traincyclefcnmixmatch.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.1   --split_ratio_B=0.5  --finetune=0 --name=cyclefcnmismatch2 |& tee cyclefcnmismatch2_mod.log
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python traincyclefcnsequential.py --niter=5 --niter_decay=0 --split_ratio_AB=0.4 --split_ratio_A=0.1   --split_ratio_B=0.5  --finetune=0 --name=cyclefcnsequential3 |& tee cyclefcnsequential3_mod.log
+
+
+
+
+cyclefcnsequential3 = 0.1 Training A and 6 epochs of each
+
+
+
+cyclefcnmismatch2 = 0.1 Training A and 13 Epochs
+
+
+
+
+#Test Scripts
+
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python test.py --name='cyclefcnsequential2' --model='cycle_gan_seg'  |& tee cyclefcnsequential2_test.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python test.py --name='cyclefcnsequential1' --model='cycle_gan_seg'  |& tee cyclefcnsequential1_test.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python test.py --name='fcnonly1' --model='fcnonly' |& tee fcnonly1_test.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python test.py --name='fcnonly2' --model='fcnonly' |& tee fcnonly2_test.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python test.py --name='cyclefcnmismatch1' --model='cycle_gan_seg' |& tee cyclefcnmismatch1_test.log
+
+srun -p long -t 40:00:00 --gres gpu:1 /home/sloke/anaconda2/bin/python test.py --name='cyclefcnmismatch2' --model='cycle_gan_seg' |& tee cyclefcnmismatch2_test.log
+
+
+python test.py --name='cyclefcnsequential2' --model='cycle_gan_seg'
+
+python test.py --name='cyclefcnsequential1' --model='cycle_gan_seg'
+
+
+python test.py --name='fcnonly1' --model='fcnonly'
+
+python test.py --name='fcnonly2' --model='fcnonly'
+
+
+python test.py --name='cyclefcnmismatch1' --model='cycle_gan_seg'
+
+python test.py --name='cyclefcnmismatch2' --model='cycle_gan_seg'

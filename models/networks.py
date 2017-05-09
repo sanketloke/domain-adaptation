@@ -682,9 +682,13 @@ class PSPNet(nn.Module):
         return F.upsample_bilinear(final, x.size()[2:])
 
 
-def network_classification_model(type,gpu_ids,num_classes=22):
-    return FCN16(num_classes,gpu_ids).cuda()
-
+def network_classification_model(type,gpu_ids,feats=None,feat4=None, feat5=None,fconn=None, score_fconn=None,score_feat4=None,num_classes=22):
+    if feats== None:
+        return FCN16(num_classes,gpu_ids).cuda()
+    elif feats is not None and fconn is None:
+        return FCN16Modified(num_classes,gpu_ids,feats,feat4,feat5).cuda()
+    else:
+        return FCN16ModifiedS(num_classes,gpu_ids,feats,feat4,feat5,fconn,score_fconn,score_feat4)
 
 import torch
 import torch.nn as nn
@@ -702,6 +706,7 @@ class FCN16(nn.Module):
         feats = list(models.vgg16(pretrained=True).features.children())
         self.feats = nn.Sequential(*feats[0:16])
         self.feat4 = nn.Sequential(*feats[17:23])
+        st
         self.feat5 = nn.Sequential(*feats[24:30])
         self.fconn = nn.Sequential(
             nn.Conv2d(512, 4096, 7),
@@ -713,6 +718,68 @@ class FCN16(nn.Module):
         )
         self.score_fconn = nn.Conv2d(4096, num_classes, 1)
         self.score_feat4 = nn.Conv2d(512, num_classes, 1)
+
+    def forward(self, x):
+        feats = self.feats(x)
+        feat4 = self.feat4(feats)
+        feat5 = self.feat5(feat4)
+        fconn = self.fconn(feat5)
+
+        score_feat4 = self.score_feat4(feat4)
+        score_fconn = self.score_fconn(fconn)
+
+        score = F.upsample_bilinear(score_fconn, score_feat4.size()[2:])
+        score += score_feat4
+
+        return F.upsample_bilinear(score, x.size()[2:])
+
+
+class FCN16Modified(nn.Module):
+
+    def __init__(self, num_classes,gpu_ids,feats,feat4,feat5):
+        super(FCN16Modified,self).__init__()
+        self.gpu_ids=gpu_ids
+        #feats = list(models.vgg16(pretrained=True).features.children())
+        self.feats = nn.Sequential(*feats)
+        self.feat4 = nn.Sequential(*feat4)
+        self.feat5 = nn.Sequential(*feat5)
+        self.fconn = nn.Sequential(
+            nn.Conv2d(512, 4096, 7),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Conv2d(4096, 4096, 1),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+        )
+        self.score_fconn = nn.Conv2d(4096, num_classes, 1)
+        self.score_feat4 = nn.Conv2d(512, num_classes, 1)
+
+    def forward(self, x):
+        feats = self.feats(x)
+        feat4 = self.feat4(feats)
+        feat5 = self.feat5(feat4)
+        fconn = self.fconn(feat5)
+
+        score_feat4 = self.score_feat4(feat4)
+        score_fconn = self.score_fconn(fconn)
+
+        score = F.upsample_bilinear(score_fconn, score_feat4.size()[2:])
+        score += score_feat4
+
+        return F.upsample_bilinear(score, x.size()[2:])
+
+class FCN16ModifiedS(nn.Module):
+
+    def __init__(self, num_classes,gpu_ids,feats,feat4,feat5,fconn,score_fconn,score_feat4):
+        super(FCN16ModifiedS,self).__init__()
+        self.gpu_ids=gpu_ids
+        #feats = list(models.vgg16(pretrained=True).features.children())
+        self.feats = nn.Sequential(*feats)
+        self.feat4 = nn.Sequential(*feat4)
+        self.feat5 = nn.Sequential(*feat5)
+        self.fconn = nn.Sequential(*fconn)
+        self.score_fconn = score_fconn
+        self.score_feat4 = score_feat4
 
     def forward(self, x):
         feats = self.feats(x)

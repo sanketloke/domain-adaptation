@@ -11,8 +11,6 @@ from .base_model import BaseModel
 from . import networks
 import sys
 
-
-
 class CycleGANPix2PixModel(BaseModel):
 	
     def name(self):
