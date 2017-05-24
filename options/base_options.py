@@ -9,7 +9,7 @@ class BaseOptions():
 
     def initialize(self):
         
-        self.parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
+        self.parser.add_argument('--batchSize', type=int, default=4, help='input batch size')
         self.parser.add_argument('--loadSize', type=int, default=1024, help='scale images to this size')
         self.parser.add_argument('--loadSize2', type=int, default=1052, help='scale images to this size')
         self.parser.add_argument('--fineSize', type=int, default=960, help='then crop to this size')
@@ -60,6 +60,7 @@ class BaseOptions():
 
         self.parser.add_argument('--factor', type=int, default=2, help='sd')
         self.parser.add_argument('--reconstruction_classifier', type=int, default=1, help='use identity mapping. ')
+        self.parser.add_argument('--critic_freq', type=int, default=4, help='critic frequency inspired from wgan')
         self.initialized = True
 
     def parse(self):

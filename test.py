@@ -1,7 +1,7 @@
 import time
 from options.train_options import TrainOptions
 opt = TrainOptions().parse() 
-opt.dataroot='/home/sloke/repos/nips2017/left8bit/gtacityscapes/test'
+#opt.dataroot='/home/sloke/repos/nips2017/left8bit/gtacityscapes/test'
 opt.split_ratio_A=1
 opt.split_ratio_B=1
  # set CUDA_VISIBLE_DEVICES before import torch
@@ -58,7 +58,6 @@ avgcountAC=0
 avgcountBC=0
 total_steps=0
 
-
 avgtimetaken=[]
 
 model = create_model(opt)
@@ -109,41 +108,76 @@ for i in range(0,len(domainAdata_test)):
     if total_steps % opt.display_freq == 0:
           visualizer.display_current_results(model.get_current_visuals(), i)
 mean_pixel_acc_test_A /= len(domainAdata_test)
-mean_class_acc_test_A /=len(domainAdata_test)
-mean_class_iou_test_A /=len(domainAdata_test)
-per_class_acc_test_A /=len(domainAdata_test)
-per_class_iou_test_A  /=len(domainAdata_test)
-print 'Final Results:'
-print 'Mean Pixel Accuracy (Domain A):'+str(mean_pixel_acc_test_A)
-print 'Mean Class Accuracy (Domain A):'+str(mean_class_acc_test_A)
-print 'Mean Class IoU (Domain A):'+str(mean_class_iou_test_A)
-print 'Per Class Accuracy (Domain A):'+str(per_class_acc_test_A)
-print 'Per Class IoU (Domain A):'+str(per_class_iou_test_A)
+cycle_data_loader=UnalignedDataLoader()
+cycle_data_loader.initialize(opt,transform,transform)
 
-# mean_pixel_acc_test_B, mean_class_acc_test_B, mean_class_iou_test_B, per_class_acc_test_B, per_class_iou_test_B=0,0,0,np.zeros((opt.num_classes)),np.zeros((opt.num_classes))
-# for i in range(0,len(domainBdata_test)):
-#     batch_n= next(domainBdata_iter_test)
+
+# dataset = cycle_data_loader.load_data()
+# q=0
+# for i in dataset:
+#     batch_n= i#next(domainAdata_iter_test)
+#     q=q+1
 #     data={}
-#     data['B_image'] = batch_n[0][0]
-#     data['B_label'] = ds1.downsize(ds1.downsize(batch_n[1][0]).data).data
-#     model.set_input(data,'BC')
-#     a,b,c,d,e=model.test()
-#     mean_pixel_acc_test_B +=a
-#     mean_class_acc_test_B +=b
-#     mean_class_iou_test_B +=c 
-#     per_class_acc_test_B +=d
-#     per_class_iou_test_B  +=e
-# mean_pixel_acc_test_B /= len(domainBdata_test)
-# mean_class_acc_test_B /=len(domainBdata_test)
-# mean_class_iou_test_B /=len(domainBdata_test)
-# per_class_acc_test_B /=len(domainBdata_test)
-# per_class_iou_test_B  /=len(domainBdata_test)
+#     data['AB_image_1'] = i['A']#batch_n[0][0]
+#     data['AB_image_2'] = i['B']#ds1.downsize(ds1.downsize(batch_n[1][0]).data).data
+#     model.set_input(data,'AB')
+#     model.test()
+#     if total_steps % opt.display_freq == 0:
+#           visualizer.display_current_results(model.get_current_visuals(), q)
+# mean_pixel_acc_test_A /= len(domainAdata_test)
 
-# print 'Mean Pixel Accuracy (Domain B):'+str(mean_pixel_acc_test_B)
-# print 'Mean Class Accuracy (Domain B):'+str(mean_class_acc_test_B)
-# print 'Mean Class IoU (Domain B):'+str(mean_class_iou_test_B)
-# print 'Per Class Accuracy (Domain B):'+str(per_class_acc_test_B)
-# print 'Per Class IoU (Domain B):'+str(per_class_iou_test_B)
+# mean_class_acc_test_A /=len(domainAdata_test)
+# mean_class_iou_test_A /=len(domainAdata_test)
+# per_class_acc_test_A /=len(domainAdata_test)
+# per_class_iou_test_A  /=len(domainAdata_test)
+# print 'Final Results:'
+# print 'Mean Pixel Accuracy (Domain A):'+str(mean_pixel_acc_test_A)
+# print 'Mean Class Accuracy (Domain A):'+str(mean_class_acc_test_A)
+# print 'Mean Class IoU (Domain A):'+str(mean_class_iou_test_A)
+# print 'Per Class Accuracy (Domain A):'+str(per_class_acc_test_A)
+# print 'Per Class IoU (Domain A):'+str(per_class_iou_test_A)
+
+
+# print 'Mean Pixel Accuracy (Domain A):'+str(mean_pixel_acc_test_A)
+# print 'Mean Class Accuracy (Domain A):'+str(mean_class_acc_test_A)
+# print 'Mean Class IoU (Domain A):'+str(mean_class_iou_test_A)
+# print 'Per Class Accuracy (Domain A):'+str(per_class_acc_test_A)
+# print 'Per Class IoU (Domain A):'+str(per_class_iou_test_A)
+
+mean_pixel_acc_test_B, mean_class_acc_test_B, mean_class_iou_test_B, per_class_acc_test_B, per_class_iou_test_B=0,0,0,np.zeros((opt.num_classes)),np.zeros((opt.num_classes))
+for i in range(0,len(domainBdata_test)):
+    batch_n= next(domainBdata_iter_test)
+    data={}
+    data['B_image'] = batch_n[0][0]
+    data['B_label'] = ds1.downsize(ds1.downsize(batch_n[1][0]).data).data
+    model.set_input(data,'BC')
+    a,b,c,d,e=model.test()
+    mean_pixel_acc_test_B +=a
+    mean_class_acc_test_B +=b
+    mean_class_iou_test_B +=c 
+    per_class_acc_test_B +=d
+    per_class_iou_test_B  +=e
+    print 'Mean Pixel Accuracy (Domain B):'+str(a)
+    print 'Mean Class Accuracy (Domain B):'+str(b)
+    print 'Mean Class IoU (Domain B):'+str(c)
+    print 'Per Class Accuracy (Domain B):'+str(d)
+    print 'Per Class IoU (Domain B):'+str(e)
+    print 'Iteration:'+str(i)
+    print 'Model:'+opt.name
+    if total_steps % opt.display_freq == 0:
+          visualizer.display_current_results(model.get_current_visuals(), i)
+mean_pixel_acc_test_B /= len(domainBdata_test)
+mean_class_acc_test_B /=len(domainBdata_test)
+mean_class_iou_test_B /=len(domainBdata_test)
+per_class_acc_test_B /=len(domainBdata_test)
+per_class_iou_test_B  /=len(domainBdata_test)
+
+print 'Mean Pixel Accuracy (Domain B):'+str(mean_pixel_acc_test_B)
+print 'Mean Class Accuracy (Domain B):'+str(mean_class_acc_test_B)
+print 'Mean Class IoU (Domain B):'+str(mean_class_iou_test_B)
+print 'Per Class Accuracy (Domain B):'+str(per_class_acc_test_B)
+print 'Per Class IoU (Domain B):'+str(per_class_iou_test_B)
+
 
 test_epoch_results.append([[mean_pixel_acc_test_A, mean_class_acc_test_A, mean_class_iou_test_A, per_class_acc_test_A, per_class_iou_test_A],[mean_pixel_acc_test_B, mean_class_acc_test_B, mean_class_iou_test_B, per_class_acc_test_B, per_class_iou_test_B]])
 with open("results.obj",'wb') as f:

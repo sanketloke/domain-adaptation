@@ -190,7 +190,8 @@ class CycleGANClassificationModel(BaseModel):
         if self.inputType in 'AB':
             self.unlabeled_A=Variable(self.input_real_A_unlabeled)
             self.unlabeled_B=Variable(self.input_real_B_unlabeled)
-
+            self.real_A=self.unlabeled_A
+            self.real_B=self.unlabeled_B
             self.fake_B = self.netG_AB.forward(self.unlabeled_A)
             self.rec_A= self.netG_BA.forward(self.fake_B)
 

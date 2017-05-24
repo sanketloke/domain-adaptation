@@ -688,7 +688,7 @@ def network_classification_model(type,gpu_ids,feats=None,feat4=None, feat5=None,
     elif feats is not None and fconn is None:
         return FCN16Modified(num_classes,gpu_ids,feats,feat4,feat5).cuda()
     else:
-        return FCN16ModifiedS(num_classes,gpu_ids,feats,feat4,feat5,fconn,score_fconn,score_feat4)
+        return FCN16ModifiedS(num_classes,gpu_ids,feats,feat4,feat5,fconn,score_fconn,score_feat4).cuda()
 
 import torch
 import torch.nn as nn

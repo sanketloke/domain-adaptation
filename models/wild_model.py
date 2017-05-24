@@ -45,6 +45,7 @@ class WildDomainAdaptationModel(BaseModel):
         BaseModel.initialize(self, opt)
         self.isTrain = opt.isTrain
         # define tensors
+        st()
         self.mode = 'all'
         self.input_real_A = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
@@ -76,7 +77,6 @@ class WildDomainAdaptationModel(BaseModel):
 
         if not self.isTrain or opt.continue_train:
             which_epoch = opt.which_epoch
-            st()
             if opt.switch==0:
                 self.load_network(self.netG_BC, 'G_BC', which_epoch)
                 copyfeat4=copy.deepcopy(self.netG_BC.feat4)
@@ -154,10 +154,12 @@ class WildDomainAdaptationModel(BaseModel):
     def forward(self):
         if self.inputType in 'AC':
             self.real_A = Variable(self.input_real_A)
+            st()
             self.fake_C_given_A = self.netG_AC.forward(self.real_A)
             self.real_C_givenA=Variable(self.input_real_C_givenA)
         if self.inputType in 'BC':
             self.real_B = Variable(self.input_real_B)
+            st()
             self.fake_C_given_B = self.netG_BC.forward(self.real_B)
             self.real_C_givenB=Variable(self.input_real_C_givenB)
         if self.inputType in 'AB':
@@ -215,7 +217,7 @@ class WildDomainAdaptationModel(BaseModel):
         # prevent shared layer from updating with gradient update
         self.netG_AMid[0].requires_grad=False   
         self.rAfc7 = self.netG_AMid.forward(rA)
-        self.rBfc7 = self.netG_AMid.forward(rB)
+        self.rBfc7 = self.netG_BMid.forward(rB)
 
         # Increase Domain Confusion
         pred_false = self.netD_AB.forward(self.rAfc7)
@@ -225,8 +227,7 @@ class WildDomainAdaptationModel(BaseModel):
         self.loss_G_A_true=self.criterionGAN(pred_true, False)
 
         # combined loss
-        self.loss_G = ( self.loss_G_A_true + self.loss_G_A_false ) * 0.5
-        self.loss_G_A=self.loss_G
+        self.loss_G = self.loss_G_A_true + self.loss_G_A_false 
         self.loss_G.backward()
 
    
@@ -238,7 +239,7 @@ class WildDomainAdaptationModel(BaseModel):
         pred_fake = netD.forward(fake.detach())
         loss_D_fake = self.criterionGAN(pred_fake, False)
         # Combined loss
-        loss_D = (loss_D_real + loss_D_fake) * 0.5
+        loss_D = (loss_D_real + loss_D_fake) 
         # backward
         loss_D.backward()
         return loss_D
@@ -248,7 +249,6 @@ class WildDomainAdaptationModel(BaseModel):
         fake_B = self.fake_B_pool.query(self.fake_B)
         real_B= self.netG_BMid.forward(self.unlabeled_B)
         self.loss_D_A = self.backward_D_basic(self.netD_AB, real_B, fake_B)
-
 
     def backward_G_AC(self):
         fake_C= self.netG_AC.forward(self.real_A)
@@ -284,7 +284,8 @@ class WildDomainAdaptationModel(BaseModel):
             from data.custom_transforms import ToLabelTensor
             labels = __import__('data.labels')
             mod_fakeC=ToLabelTensor(labels.labels.labels).label2image(fake_C.cpu().data[0].numpy().argmax(0))
-            return OrderedDict([('real_A', real_A),('fake_C_givenA',mod_fakeC)])
+            mod_realC=ToLabelTensor(labels.labels.labels).label2image(self.real_C_givenA.cpu().int().data[0].numpy())
+            return OrderedDict([('real_A', real_A), ('fake_C_givenA',mod_fakeC)])
 
     def save(self, label):
         use_gpu = self.gpu_ids is not None

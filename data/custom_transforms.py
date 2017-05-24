@@ -35,6 +35,7 @@ class ToLabelTensor(object):
             return class_val
         c=np.vectorize(check_val)
         mod_arr=c(mod_arr)
+        #print torch.from_numpy(mod_arr)
         return torch.from_numpy(mod_arr)
 
     def label2image(self,tensorImage):
@@ -87,4 +88,9 @@ class DownSizeLabelTensor(object):
         self.factor = factor
 
     def __call__(self, img):
-        return self.downsize(img.expand(1,img.size()[0],img.size()[1]))
+        a=[]
+        # print 'Called!'
+        # print img
+        # print img.expand(1,img.size()[0],img.size()[1])
+        # print self.downsize(img.expand(1,img.size()[0],img.size()[1]))
+        return self.downsize(img.expand(1,img.size()[0],img.size()[1])).data
